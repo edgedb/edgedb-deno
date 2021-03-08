@@ -1,9 +1,9 @@
-import {process} from "https://deno.land/std@0.87.0/node/process.ts";
-import {Buffer} from "https://deno.land/std@0.87.0/node/buffer.ts";
-import {Sha256, HmacSha256} from "https://deno.land/std@0.87.0/hash/sha256.ts";
-import path from "https://deno.land/std@0.87.0/node/path.ts";
-import EventEmitter from "https://deno.land/std@0.87.0/node/events.ts";
-import util from "https://deno.land/std@0.87.0/node/util.ts";
+import {process} from "https://deno.land/std@0.89.0/node/process.ts";
+import {Buffer} from "https://deno.land/std@0.89.0/node/buffer.ts";
+import {Sha256, HmacSha256} from "https://deno.land/std@0.89.0/hash/sha256.ts";
+import path from "https://deno.land/std@0.89.0/node/path.ts";
+import EventEmitter from "https://deno.land/std@0.89.0/node/events.ts";
+import util from "https://deno.land/std@0.89.0/node/util.ts";
 
 export {Buffer, path, process, util};
 
@@ -33,7 +33,16 @@ export function readFileUtf8Sync(path: string): string {
 }
 
 export function homeDir(): string {
-  throw new Error("not implemented");
+  const homeDir = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
+  if (homeDir) {
+    return homeDir;
+  }
+  const homeDrive = Deno.env.get("HOMEDRIVE"),
+    homePath = Deno.env.get("HOMEPATH");
+  if (homeDrive && homePath) {
+    return path.join(homeDrive, homePath);
+  }
+  throw new Error("Unable to determine home path");
 }
 
 export function hrTime(): number {
