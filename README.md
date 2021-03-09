@@ -13,7 +13,7 @@ import * as edgedb from "https://deno.land/x/...@.../mod.ts";
 
 Following Deno convention it is recommended to always import a specific tagged version of `edgedb-deno`, and to not import from the underscored `/_src` path (all of `edgedb-deno`'s public API is exported from the `/mod.ts` file).
 
-The `main` branch of this repo mirrors the latest commits to the `master` branch of [edgedb-js](https://github.com/edgedb/edgedb-js), though it not recommended to import from this branch directly, as may contain breaking changes.
+The `main` branch of this repo mirrors the latest commits to the `master` branch of [edgedb-js](https://github.com/edgedb/edgedb-js), though it not recommended to import from this branch directly, as it may contain breaking changes.
 
 ## Quick start
 
@@ -49,7 +49,7 @@ Needed if connecting with an instance name, to get your home directory (where th
 
 ### `--allow-read` (optional)
 
-Needed if connecting with an instance name, to read instance credentials file from `<home-dir>/.edgedb/credentials`.
+Needed if connecting with an instance name, to read the instance credentials file from `<home-dir>/.edgedb/credentials`.
 
 ## `--unstable` flag
 
