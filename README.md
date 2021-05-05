@@ -1,5 +1,7 @@
 # EdgeDB Deno driver
 
+[![Build Status](https://github.com/edgedb/edgedb-js/workflows/Tests/badge.svg?event=push&branch=master)](https://github.com/edgedb/edgedb-js/actions) [![Join GitHub discussions](https://img.shields.io/badge/join-github%20discussions-green)](https://github.com/edgedb/edgedb/discussions)
+
 `edgedb-deno` is the official [EdgeDB](https://github.com/edgedb/edgedb)
 driver for Deno. 🦕
 
