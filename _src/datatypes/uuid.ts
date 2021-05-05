@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./../globals.deno.ts";
+import {Buffer} from "../globals.deno.ts";
 
 import {inspect} from "../compat.ts";
 

@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./../globals.deno.ts";
+import {Buffer} from "../globals.deno.ts";
 
 import {KNOWN_TYPENAMES} from "./consts.ts";
 

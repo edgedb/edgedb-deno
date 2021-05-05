@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./../globals.deno.ts";
+import {Buffer} from "../globals.deno.ts";
 
 import {ReadBuffer, WriteBuffer} from "../buffer.ts";
 import {KNOWN_TYPES} from "./consts.ts";
@@ -68,10 +68,16 @@ export abstract class Codec {
 
 export abstract class ScalarCodec extends Codec {
   private derivedFromTid: uuid | null = null;
+  private typeName: string | null = null;
 
   constructor(tid: uuid, derivedFromTid: uuid | null = null) {
     super(tid);
     this.derivedFromTid = derivedFromTid;
+  }
+
+  /** @internal */
+  setTypeName(typeName: string): void {
+    this.typeName = typeName;
   }
 
   derive(tid: uuid): Codec {
@@ -88,6 +94,10 @@ export abstract class ScalarCodec extends Codec {
   }
 
   getKnownTypeName(): string {
+    if (this.typeName) {
+      return this.typeName;
+    }
+
     if (this.derivedFromTid) {
       return KNOWN_TYPES.get(this.derivedFromTid)!;
     }

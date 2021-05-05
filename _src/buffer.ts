@@ -22,6 +22,7 @@ import char, * as chars from "./chars.ts";
 import {RingBuffer} from "./ring.ts";
 import * as bi from "./bigint.ts";
 import * as compat from "./compat.ts";
+import {MessageHeaders, HeaderCodes} from "./ifaces.ts";
 
 /* WriteBuffer over-allocation */
 const BUFFER_INC_SIZE: number = 4096;
@@ -205,6 +206,35 @@ export class WriteMessageBuffer {
       this.messagePos + 1
     );
     this.messagePos = -1;
+    return this;
+  }
+
+  writeHeaders(headers: MessageHeaders | null): this {
+    if (this.messagePos < 0) {
+      throw new BufferError("cannot writeHeaders: no current message");
+    }
+    if (!headers) {
+      this.buffer.writeUInt16(0);
+      return this;
+    }
+
+    const entries = Object.entries(headers).filter(
+      ([_, value]) => value !== undefined
+    ) as Array<[keyof typeof HeaderCodes, string | Buffer]>;
+    this.buffer.writeUInt16(entries.length);
+    for (const [code, value] of entries) {
+      this.buffer.writeUInt16(HeaderCodes[code]);
+      if (Buffer.isBuffer(value)) {
+        this.buffer.writeUInt32(value.byteLength);
+        this.buffer.writeBuffer(value);
+      } else if (typeof value === "string") {
+        this.buffer.writeString(value);
+      } else {
+        throw new BufferError(
+          "cannot write header: value is not a Buffer or string"
+        );
+      }
+    }
     return this;
   }
 

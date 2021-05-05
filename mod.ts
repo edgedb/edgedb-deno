@@ -26,4 +26,8 @@ export {createPool} from "./_src/pool.ts";
 
 export type {Connection, Pool} from "./_src/ifaces.ts";
 
+export {IsolationLevel, RetryCondition, RetryOptions} from "./_src/options.ts";
+export {defaultBackoff} from "./_src/options.ts";
+export type {BackoffFunction} from "./_src/options.ts";
+
 export * from "./_src/index.shared.ts";

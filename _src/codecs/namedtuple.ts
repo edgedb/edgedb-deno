@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./../globals.deno.ts";
+import {Buffer} from "../globals.deno.ts";
 
 import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces.ts";
 import {ReadBuffer, WriteBuffer} from "../buffer.ts";

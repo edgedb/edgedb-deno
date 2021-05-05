@@ -27,7 +27,9 @@ import {
   Duration,
 } from "./datatypes/datetime.ts";
 import {Transaction} from "./transaction.ts";
-import {ConnectionImpl} from "./client.ts";
+import {InnerConnection, ConnectionImpl} from "./client.ts";
+import {Options, RetryOptions, TransactionOptions} from "./options.ts";
+import {PartialRetryRule} from "./options.ts";
 
 import {Set} from "./datatypes/set.ts";
 
@@ -48,19 +50,10 @@ type QueryArg = QueryArgPrimitive | QueryArgPrimitive[] | null;
 
 export type QueryArgs = {[_: string]: QueryArg} | QueryArg[] | null;
 
-export enum IsolationLevel {
-  SERIALIZABLE = "serializable",
-  REPEATABLE_READ = "repeatable_read",
-}
-
 export enum BorrowReason {
   TRANSACTION = "transaction",
-}
-
-export interface TransactionOptions {
-  deferrable?: boolean;
-  isolation?: IsolationLevel;
-  readonly?: boolean;
+  QUERY = "query",
+  CLOSE = "close",
 }
 
 export interface ReadOnlyExecutor {
@@ -71,8 +64,8 @@ export interface ReadOnlyExecutor {
   queryOneJSON(query: string, args?: QueryArgs): Promise<string>;
 }
 
-export const BORROWED_FOR = Symbol();
-export const CONNECTION_IMPL = Symbol();
+export const INNER = Symbol();
+export const OPTIONS = Symbol();
 export const ALLOW_MODIFICATIONS = Symbol();
 
 interface Modifiable {
@@ -85,11 +78,9 @@ interface Modifiable {
 export type Executor = ReadOnlyExecutor & Modifiable;
 
 export interface Connection extends Executor {
-  [BORROWED_FOR]?: BorrowReason;
-  [CONNECTION_IMPL](singleConnect?: boolean): Promise<ConnectionImpl>;
   transaction<T>(
     action: () => Promise<T>,
-    options?: TransactionOptions
+    options?: Partial<TransactionOptions>
   ): Promise<T>;
   rawTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
@@ -97,6 +88,8 @@ export interface Connection extends Executor {
   retryingTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T>;
+  withTransactionOptions(opt: TransactionOptions): Connection;
+  withRetryOptions(opt: RetryOptions): Connection;
   close(): Promise<void>;
   isClosed(): boolean;
 }
@@ -109,7 +102,7 @@ export interface IPoolStats {
 export interface Pool extends Executor {
   transaction<T>(
     action: () => Promise<T>,
-    options?: TransactionOptions
+    options?: Partial<TransactionOptions>
   ): Promise<T>;
   rawTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
@@ -117,6 +110,8 @@ export interface Pool extends Executor {
   retryingTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T>;
+  withTransactionOptions(opt: TransactionOptions): Connection;
+  withRetryOptions(opt: RetryOptions): Connection;
   close(): Promise<void>;
   isClosed(): boolean;
 
@@ -132,4 +127,25 @@ export const onConnectionClose = Symbol("onConnectionClose");
 
 export interface IConnectionProxied extends Connection {
   [onConnectionClose](): void;
+}
+
+export const HeaderCodes = {
+  implicitLimit: 0xff01,
+  implicitTypenames: 0xff02,
+  implicitTypeids: 0xff03,
+  allowCapabilities: 0xff04,
+};
+
+export type MessageHeaders = {
+  [key in keyof typeof HeaderCodes]?: string | Buffer;
+};
+
+export interface PrepareMessageHeaders {
+  implicitLimit?: string;
+  implicitTypenames?: "true";
+  implicitTypeids?: "true";
+}
+
+export interface ParseOptions {
+  headers?: PrepareMessageHeaders;
 }
