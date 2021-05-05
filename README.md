@@ -10,7 +10,7 @@ please refer to the [edgedb-js](https://github.com/edgedb/edgedb-js) repo.
 ## Import
 
 ```typescript
-import * as edgedb from "https://deno.land/x/...@.../mod.ts";
+import * as edgedb from "https://deno.land/x/edgedb/mod.ts";
 ```
 
 Following Deno convention it is recommended to always import a specific tagged
@@ -31,7 +31,7 @@ https://www.edgedb.com/docs/tutorial/index/
 Now you're ready to import `edgedb-deno` and start querying your database:
 
 ```typescript
-import * as edgedb from "https://deno.land/x/...@.../mod.ts"
+import * as edgedb from "https://deno.land/x/edgedb/mod.ts"
 
 const conn = await edgedb.connect('tutorial');
 
