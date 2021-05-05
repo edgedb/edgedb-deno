@@ -20,7 +20,7 @@ version of `edgedb-deno`, and to not import from the underscored `/_src` path
 (all of `edgedb-deno`'s public API is exported from the `/mod.ts` file).
 
 The `main` branch of this repo mirrors the latest commits to the `master`
-ranch of [edgedb-js](https://github.com/edgedb/edgedb-js), though it not
+branch of [edgedb-js](https://github.com/edgedb/edgedb-js), though it not
 recommended to import from this branch directly, as it may contain breaking
 changes.
 
