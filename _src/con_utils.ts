@@ -18,7 +18,7 @@
 
 import {process} from "./globals.deno.ts";
 
-import {path, homeDir, crypto, fs} from "./adapter.deno.ts";
+import {path, homeDir, crypto, fs, readFileUtf8Sync} from "./adapter.deno.ts";
 import * as errors from "./errors/index.ts";
 import {readCredentialsFile} from "./credentials.ts";
 
@@ -162,11 +162,7 @@ function parseConnectDsnAndArgs({
       }
       const stashDir = stashPath(dir);
       if (fs.existsSync(stashDir)) {
-        dsn = fs
-          .readFileSync(path.join(stashDir, "instance-name"), {
-            encoding: "utf8",
-          })
-          .trim();
+        dsn = readFileUtf8Sync(path.join(stashDir, "instance-name")).trim();
       } else {
         throw new errors.ClientConnectionError(
           "Found `edgedb.toml` but the project is not initialized. " +
