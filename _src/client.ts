@@ -47,6 +47,7 @@ import {
   onConnectionClose,
   ParseOptions,
   PrepareMessageHeaders,
+  ProtocolVersion,
 } from "./ifaces.ts";
 import * as scram from "./scram.ts";
 import {Options, RetryOptions, TransactionOptions} from "./options.ts";
@@ -63,7 +64,7 @@ import {Transaction, START_TRANSACTION_IMPL} from "./transaction.ts";
 
 const PROTO_VER_MAJOR = 0;
 const PROTO_VER_MINOR_MIN = 9;
-const PROTO_VER_MINOR = 10;
+const PROTO_VER_MINOR = 11;
 
 enum AuthenticationStatuses {
   AUTH_OK = 0,
@@ -483,6 +484,11 @@ export class ConnectionImpl {
 
   private opInProgress: boolean = false;
 
+  protected protocolVersion: ProtocolVersion = {
+    major: PROTO_VER_MAJOR,
+    minor: PROTO_VER_MINOR,
+  };
+
   /** @internal */
   protected constructor(sock: net.Socket, config: NormalizedConnectConfig) {
     this.buffer = new ReadMessageBuffer();
@@ -644,12 +650,18 @@ export class ConnectionImpl {
 
     let inCodec = this.codecsRegistry.getCodec(inTypeId);
     if (inCodec == null) {
-      inCodec = this.codecsRegistry.buildCodec(inTypeData);
+      inCodec = this.codecsRegistry.buildCodec(
+        inTypeData,
+        this.protocolVersion
+      );
     }
 
     let outCodec = this.codecsRegistry.getCodec(outTypeId);
     if (outCodec == null) {
-      outCodec = this.codecsRegistry.buildCodec(outTypeData);
+      outCodec = this.codecsRegistry.buildCodec(
+        outTypeData,
+        this.protocolVersion
+      );
     }
 
     return [cardinality, inCodec, outCodec, inTypeData, outTypeData];
@@ -858,6 +870,9 @@ export class ConnectionImpl {
                 `the protocol ${hi}.${lo}`
             );
           }
+
+          this.protocolVersion = {major: hi, minor: lo};
+
           break;
         }
 
@@ -1488,9 +1503,9 @@ export class RawConnection extends ConnectionImpl {
   public async rawParse(
     query: string,
     headers?: PrepareMessageHeaders
-  ): Promise<[Buffer, Buffer]> {
+  ): Promise<[Buffer, Buffer, ProtocolVersion]> {
     const result = await this._parse(query, false, false, true, {headers});
-    return [result[3]!, result[4]!];
+    return [result[3]!, result[4]!, this.protocolVersion];
   }
 
   public async rawExecute(encodedArgs: Buffer | null = null): Promise<Buffer> {

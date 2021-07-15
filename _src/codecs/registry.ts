@@ -34,6 +34,7 @@ import {ObjectCodec} from "./object.ts";
 import {SetCodec} from "./set.ts";
 import {UUIDObjectCodec} from "./uuid.ts";
 import {UUID} from "../datatypes/uuid.ts";
+import {ProtocolVersion} from "../ifaces.ts";
 
 const CODECS_CACHE_SIZE = 1000;
 const CODECS_BUILD_CACHE_SIZE = 200;
@@ -157,13 +158,13 @@ export class CodecsRegistry {
     return null;
   }
 
-  buildCodec(spec: Buffer): ICodec {
+  buildCodec(spec: Buffer, protocolVersion: ProtocolVersion): ICodec {
     const frb = new ReadBuffer(spec);
     const codecsList: ICodec[] = [];
     let codec: ICodec | null = null;
 
     while (frb.length) {
-      codec = this._buildCodec(frb, codecsList);
+      codec = this._buildCodec(frb, codecsList, protocolVersion);
       if (codec == null) {
         // An annotation; ignore.
         continue;
@@ -179,7 +180,11 @@ export class CodecsRegistry {
     return codecsList[codecsList.length - 1];
   }
 
-  private _buildCodec(frb: ReadBuffer, cl: ICodec[]): ICodec | null {
+  private _buildCodec(
+    frb: ReadBuffer,
+    cl: ICodec[],
+    protocolVersion: ProtocolVersion
+  ): ICodec | null {
     const t = frb.readUInt8();
     const tid = frb.readUUID();
 
@@ -201,7 +206,15 @@ export class CodecsRegistry {
         case CTYPE_SHAPE: {
           const els = frb.readUInt16();
           for (let i = 0; i < els; i++) {
-            frb.discard(1);
+            if (
+              protocolVersion.major > 0 ||
+              (protocolVersion.major === 0 && protocolVersion.minor >= 11)
+            ) {
+              frb.discard(5); // 4 (flags) + 1 (cardinality)
+            } else {
+              frb.discard(1); // flags
+            }
+
             const elm_length = frb.readUInt32();
             frb.discard(elm_length + 2);
           }
@@ -310,7 +323,16 @@ export class CodecsRegistry {
         const flags: number[] = new Array(els);
 
         for (let i = 0; i < els; i++) {
-          const flag = frb.readUInt8();
+          let flag: number;
+          if (
+            protocolVersion.major > 0 ||
+            (protocolVersion.major === 0 && protocolVersion.minor >= 11)
+          ) {
+            flag = frb.readUInt32();
+            frb.discard(1); // cardinality
+          } else {
+            flag = frb.readUInt8();
+          }
 
           const strLen = frb.readUInt32();
           const name = frb.readBuffer(strLen).toString("utf8");
