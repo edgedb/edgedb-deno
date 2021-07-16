@@ -18,9 +18,10 @@
 
 import {process} from "./globals.deno.ts";
 
-import {path, homeDir, crypto, fs, readFileUtf8Sync} from "./adapter.deno.ts";
+import {path, crypto, fs, readFileUtf8Sync} from "./adapter.deno.ts";
 import * as errors from "./errors/index.ts";
-import {readCredentialsFile} from "./credentials.ts";
+import {getCredentialsPath, readCredentialsFile} from "./credentials.ts";
+import * as platform from "./platform.ts";
 
 const EDGEDB_PORT = 5656;
 
@@ -97,15 +98,15 @@ export function parseConnectArguments(
 
 function stashPath(projectDir: string): string {
   let projectPath = fs.realpathSync(projectDir);
-  if (process.platform === "win32" && !projectPath.startsWith("\\\\")) {
+  if (platform.isWindows && !projectPath.startsWith("\\\\")) {
     projectPath = "\\\\?\\" + projectPath;
   }
-  const hasher = crypto.createHash("sha1");
-  hasher.update(projectPath);
-  const hash = hasher.digest("hex");
+
+  const hash = crypto.createHash("sha1").update(projectPath).digest("hex");
   const baseName = path.basename(projectPath);
   const dirName = baseName + "-" + hash;
-  return path.join(homeDir(), ".edgedb", "projects", dirName);
+
+  return platform.searchConfigDir("projects", dirName);
 }
 
 function parseConnectDsnAndArgs({
@@ -322,12 +323,7 @@ function parseConnectDsnAndArgs({
       );
     }
     usingCredentials = true;
-    const credentialsFile = path.join(
-      homeDir(),
-      ".edgedb",
-      "credentials",
-      dsn + ".json"
-    );
+    const credentialsFile = getCredentialsPath(dsn);
     const credentials = readCredentialsFile(credentialsFile);
     port = credentials.port;
     user = credentials.user;
@@ -350,7 +346,7 @@ function parseConnectDsnAndArgs({
       host = hl[0];
       port = hl[1];
     } else {
-      if (process.platform === "win32" || usingCredentials) {
+      if (platform.isWindows || usingCredentials) {
         host = [];
       } else {
         host = ["/run/edgedb", "/var/run/edgedb"];

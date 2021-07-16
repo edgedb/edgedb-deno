@@ -1,4 +1,5 @@
-import {readFileUtf8Sync} from "./adapter.deno.ts";
+import {readFileUtf8Sync, path} from "./adapter.deno.ts";
+import * as platform from "./platform.ts";
 
 export interface Credentials {
   host?: string;
@@ -6,6 +7,10 @@ export interface Credentials {
   user: string;
   password?: string;
   database?: string;
+}
+
+export function getCredentialsPath(instanceName: string): string {
+  return platform.searchConfigDir("credentials", instanceName + ".json");
 }
 
 export function readCredentialsFile(file: string): Credentials {
