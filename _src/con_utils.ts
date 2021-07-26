@@ -18,7 +18,14 @@
 
 import {process} from "./globals.deno.ts";
 
-import {path, crypto, fs, readFileUtf8Sync} from "./adapter.deno.ts";
+import {
+  path,
+  homeDir,
+  crypto,
+  fs,
+  readFileUtf8Sync,
+  tls,
+} from "./adapter.deno.ts";
 import * as errors from "./errors/index.ts";
 import {getCredentialsPath, readCredentialsFile} from "./credentials.ts";
 import * as platform from "./platform.ts";
@@ -37,6 +44,7 @@ export interface NormalizedConnectConfig {
   commandTimeout?: number;
   waitUntilAvailable?: number;
   legacyUUIDMode?: boolean;
+  tlsOptions?: tls.ConnectionOptions;
 }
 
 export interface ConnectConfig {
@@ -52,6 +60,8 @@ export interface ConnectConfig {
   waitUntilAvailable?: number;
   serverSettings?: any;
   legacyUUIDMode?: boolean;
+  tlsCAFile?: string;
+  tlsVerifyHostname?: boolean;
 }
 
 function mapParseInt(x: any): number {
@@ -63,6 +73,27 @@ function mapParseInt(x: any): number {
   }
 
   return res;
+}
+
+function parseVerifyHostname(s: string): boolean {
+  switch (s.toLowerCase()) {
+    case "true":
+    case "t":
+    case "yes":
+    case "y":
+    case "on":
+    case "1":
+      return true;
+    case "false":
+    case "f":
+    case "no":
+    case "n":
+    case "off":
+    case "0":
+      return false;
+    default:
+      throw new Error(`invalid tls_verify_hostname value: ${s}`);
+  }
 }
 
 export function parseConnectArguments(
@@ -117,11 +148,14 @@ function parseConnectDsnAndArgs({
   password,
   database,
   admin,
+  tlsCAFile,
+  tlsVerifyHostname,
   serverSettings,
   // @ts-ignore
   server_settings,
 }: ConnectConfig): NormalizedConnectConfig {
   let usingCredentials: boolean = false;
+  const tlsCAData: string[] = [];
 
   if (admin) {
     // tslint:disable-next-line: no-console
@@ -307,6 +341,22 @@ function parseConnectDsnAndArgs({
         parsedQ.delete("password");
       }
 
+      if (parsedQ.has("tls_cert_file")) {
+        if (!tlsCAFile) {
+          tlsCAFile = parsedQ.get("tls_cert_file");
+        }
+        parsedQ.delete("tls_cert_file");
+      }
+
+      if (parsedQ.has("tls_verify_hostname")) {
+        if (tlsVerifyHostname == null) {
+          tlsVerifyHostname = parseVerifyHostname(
+            parsedQ.get("tls_verify_hostname") || ""
+          );
+        }
+        parsedQ.delete("tls_verify_hostname");
+      }
+
       // if there are more query params left, interpret them as serverSettings
       if (parsedQ.size) {
         if (serverSettings == null) {
@@ -337,6 +387,12 @@ function parseConnectDsnAndArgs({
     }
     if (database == null && "database" in credentials) {
       database = credentials.database;
+    }
+    if (tlsCAFile == null && credentials.tlsCAData != null) {
+      tlsCAData.push(credentials.tlsCAData);
+    }
+    if (tlsVerifyHostname == null && "tlsVerifyHostname" in credentials) {
+      tlsVerifyHostname = credentials.tlsVerifyHostname;
     }
   }
 
@@ -424,12 +480,52 @@ function parseConnectDsnAndArgs({
     throw new Error("could not determine the database address to connect to");
   }
 
+  let tlsOptions: tls.ConnectionOptions | undefined;
+  if (!admin) {
+    if (tlsCAFile) {
+      tlsCAData.push(readFileUtf8Sync(tlsCAFile));
+    }
+
+    tlsOptions = {ALPNProtocols: ["edgedb-binary"]};
+
+    if (tlsCAData.length !== 0) {
+      if (tlsVerifyHostname == null) {
+        tlsVerifyHostname = false;
+      }
+
+      // this option replaces the system CA certificates with the one provided.
+      tlsOptions.ca = tlsCAData;
+    } else {
+      if (tlsVerifyHostname == null) {
+        tlsVerifyHostname = true;
+      }
+    }
+
+    if (!tlsVerifyHostname) {
+      tlsOptions.checkServerIdentity = (hostname: string, cert: any) => {
+        const err = tls.checkServerIdentity(hostname, cert);
+
+        if (err === undefined) {
+          return undefined;
+        }
+
+        // ignore failed hostname check
+        if (err.message.startsWith("Hostname/IP does not match certificate")) {
+          return undefined;
+        }
+
+        return err;
+      };
+    }
+  }
+
   return {
     addrs,
     user,
     password,
     database,
     serverSettings,
+    tlsOptions,
   };
 }
 
