@@ -47,9 +47,11 @@ For the full documentation see the
 
 ## TLS
 
-Deno doesn't currently support TLS ALPN for client connections. This means that
-to use deno with the latest version of EdgeDB the server needs to be run
-without TLS which is on by default.
+Deno doesn't currently support TLS ALPN for client connections. Because of this
+deno support is experimental. To use deno with the latest version of EdgeDB the
+server needs to be run using either the `--allow-insecure-binary-clients` flag
+or setting the `EDGEDB_SERVER_ALLOW_INSECURE_BINARY_CLIENTS` environment
+variable.
 
 ## Permissions
 
