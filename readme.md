@@ -48,7 +48,7 @@ For the full documentation see the
 ## TLS
 
 Deno doesn't currently support TLS ALPN for client connections. This means that
-to use deno with the latest version of edgedb the server needs to be run
+to use deno with the latest version of EdgeDB the server needs to be run
 without TLS which is on by default.
 
 ## Permissions
