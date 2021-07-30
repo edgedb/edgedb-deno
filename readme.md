@@ -45,6 +45,12 @@ await conn.close();
 For the full documentation see the
 [edgedb-js docs](https://www.edgedb.com/docs/clients/01_js/index).
 
+## TLS
+
+deno doesn't currently support TLS ALPN for client connections. This means that
+to use deno with the latest version of edgedb the server needs to be run
+without TLS which is on by default.
+
 ## Permissions
 
 The permissions `edgedb-deno` may require are detailed below:
