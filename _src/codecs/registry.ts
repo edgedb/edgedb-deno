@@ -34,7 +34,8 @@ import {ObjectCodec} from "./object.ts";
 import {SetCodec} from "./set.ts";
 import {UUIDObjectCodec} from "./uuid.ts";
 import {UUID} from "../datatypes/uuid.ts";
-import {versionGreaterThanOrEqual} from "../client.ts";
+import {ProtocolVersion} from "../ifaces.ts";
+import {versionGreaterThanOrEqual} from "../utils.ts";
 
 const CODECS_CACHE_SIZE = 1000;
 const CODECS_BUILD_CACHE_SIZE = 200;
@@ -158,7 +159,7 @@ export class CodecsRegistry {
     return null;
   }
 
-  buildCodec(spec: Buffer, protocolVersion: [number, number]): ICodec {
+  buildCodec(spec: Buffer, protocolVersion: ProtocolVersion): ICodec {
     const frb = new ReadBuffer(spec);
     const codecsList: ICodec[] = [];
     let codec: ICodec | null = null;
@@ -183,7 +184,7 @@ export class CodecsRegistry {
   private _buildCodec(
     frb: ReadBuffer,
     cl: ICodec[],
-    protocolVersion: [number, number]
+    protocolVersion: ProtocolVersion
   ): ICodec | null {
     const t = frb.readUInt8();
     const tid = frb.readUUID();
