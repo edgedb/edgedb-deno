@@ -336,7 +336,7 @@ export class StandaloneConnection implements Connection {
     }
   }
 
-  async query(query: string, args?: QueryArgs): Promise<Set> {
+  async query<T = unknown>(query: string, args?: QueryArgs): Promise<T[]> {
     const inner = this[INNER];
     const borrowed_for = inner.borrowedFor;
     if (borrowed_for) {
@@ -372,7 +372,7 @@ export class StandaloneConnection implements Connection {
     }
   }
 
-  async querySingle(query: string, args?: QueryArgs): Promise<any> {
+  async querySingle<T = unknown>(query: string, args?: QueryArgs): Promise<T> {
     const inner = this[INNER];
     const borrowed_for = inner.borrowedFor;
     if (borrowed_for) {
@@ -390,7 +390,7 @@ export class StandaloneConnection implements Connection {
     }
   }
 
-  async queryOne(query: string, args?: QueryArgs): Promise<any> {
+  async queryOne<T = unknown>(query: string, args?: QueryArgs): Promise<T> {
     // tslint:disable-next-line: no-console
     console.warn(
       "The `queryOne()` method is deprecated and is scheduled to be " +
@@ -1035,9 +1035,8 @@ export class ConnectionImpl {
     const serverFirst = this.buffer.readString();
     this.buffer.finishMessage();
 
-    const [serverNonce, salt, itercount] = scram.parseServerFirstMessage(
-      serverFirst
-    );
+    const [serverNonce, salt, itercount] =
+      scram.parseServerFirstMessage(serverFirst);
 
     const [clientFinal, expectedServerSig] = scram.buildClientFinalMessage(
       this.config.password || "",
@@ -1192,13 +1191,8 @@ export class ConnectionImpl {
         switch (mtype) {
           case chars.$T: {
             try {
-              [
-                cardinality,
-                inCodec,
-                outCodec,
-                inCodecData,
-                outCodecData,
-              ] = this._parseDescribeTypeMessage();
+              [cardinality, inCodec, outCodec, inCodecData, outCodecData] =
+                this._parseDescribeTypeMessage();
             } catch (e) {
               error = e;
             }
@@ -1610,21 +1604,30 @@ export class RawConnection extends ConnectionImpl {
     throw new Error("not implemented");
   }
 
-  async query(query: string, args: QueryArgs = null): Promise<Set> {
+  async query<T = unknown>(
+    query: string,
+    args: QueryArgs = null
+  ): Promise<T[]> {
     throw new Error("not implemented");
   }
 
-  async querySingle(query: string, args: QueryArgs = null): Promise<any> {
+  async querySingle<T = unknown>(
+    query: string,
+    args: QueryArgs = null
+  ): Promise<T> {
     throw new Error("not implemented");
   }
 
-  async queryOne(query: string, args: QueryArgs = null): Promise<any> {
+  async queryOne<T = unknown>(
+    query: string,
+    args: QueryArgs = null
+  ): Promise<T> {
     // tslint:disable-next-line: no-console
     console.warn(
       "The `queryOne()` method is deprecated and is scheduled to be " +
         "removed. Use the `querySingle()` method instead"
     );
-    this.querySingle(query, args);
+    return this.querySingle(query, args);
   }
 
   async queryJSON(query: string, args: QueryArgs = null): Promise<string> {
