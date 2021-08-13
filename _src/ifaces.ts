@@ -25,6 +25,7 @@ import {
   LocalDate,
   LocalTime,
   Duration,
+  RelativeDuration,
 } from "./datatypes/datetime.ts";
 import {Transaction} from "./transaction.ts";
 import {InnerConnection, ConnectionImpl} from "./client.ts";
@@ -46,6 +47,7 @@ type QueryArgPrimitive =
   | LocalDate
   | LocalTime
   | Duration
+  | RelativeDuration
   | UUID;
 
 type QueryArg = QueryArgPrimitive | QueryArgPrimitive[] | null;
