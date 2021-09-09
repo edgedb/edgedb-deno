@@ -36,6 +36,8 @@ import {Set} from "./datatypes/set.ts";
 import LRU from "./lru.ts";
 import {EMPTY_TUPLE_CODEC, EmptyTupleCodec, TupleCodec} from "./codecs/tuple.ts";
 import {NamedTupleCodec} from "./codecs/namedtuple.ts";
+import {ObjectCodec} from "./codecs/object.ts";
+import {NULL_CODEC, NullCodec} from "./codecs/codecs.ts";
 import {
   ALLOW_MODIFICATIONS,
   INNER,
@@ -63,7 +65,7 @@ import {
 import {Transaction as LegacyTransaction} from "./legacy_transaction.ts";
 import {Transaction, START_TRANSACTION_IMPL} from "./transaction.ts";
 
-const PROTO_VER: ProtocolVersion = [0, 11];
+const PROTO_VER: ProtocolVersion = [0, 12];
 const PROTO_VER_MIN: ProtocolVersion = [0, 9];
 
 enum AuthenticationStatuses {
@@ -1224,16 +1226,32 @@ export class ConnectionImpl {
   }
 
   private _encodeArgs(args: QueryArgs, inCodec: ICodec): Buffer {
-    if (inCodec === EMPTY_TUPLE_CODEC && !args) {
-      return EmptyTupleCodec.BUFFER;
-    }
+    if (versionGreaterThanOrEqual(this.protocolVersion, [0, 12])) {
+      if (inCodec === NULL_CODEC && !args) {
+        return NullCodec.BUFFER;
+      }
 
-    if (inCodec instanceof NamedTupleCodec || inCodec instanceof TupleCodec) {
-      return inCodec.encodeArgs(args);
-    }
+      if (inCodec instanceof ObjectCodec) {
+        return inCodec.encodeArgs(args);
+      }
 
-    // Shouldn't ever happen.
-    throw new Error("invalid input codec");
+      // Shouldn't ever happen.
+      throw new Error("invalid input codec");
+    } else {
+      if (inCodec === EMPTY_TUPLE_CODEC && !args) {
+        return EmptyTupleCodec.BUFFER;
+      }
+
+      if (
+        inCodec instanceof NamedTupleCodec ||
+        inCodec instanceof TupleCodec
+      ) {
+        return inCodec.encodeArgs(args);
+      }
+
+      // Shouldn't ever happen.
+      throw new Error("invalid input codec");
+    }
   }
 
   protected async _executeFlow(
@@ -1575,9 +1593,13 @@ export class RawConnection extends ConnectionImpl {
 
   public async rawExecute(encodedArgs: Buffer | null = null): Promise<Buffer> {
     const result = new WriteBuffer();
+    let inCodec = EMPTY_TUPLE_CODEC;
+    if (versionGreaterThanOrEqual(this.protocolVersion, [0, 12])) {
+      inCodec = NULL_CODEC;
+    }
     await this._executeFlow(
       encodedArgs, // arguments
-      EMPTY_TUPLE_CODEC, // inCodec -- to encode lack of arguments.
+      inCodec, // inCodec -- to encode lack of arguments.
       EMPTY_TUPLE_CODEC, // outCodec -- does not matter, it will not be used.
       result
     );

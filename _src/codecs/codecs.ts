@@ -16,6 +16,8 @@
  * limitations under the License.
  */
 
+import {Buffer} from "../globals.deno.ts";
+
 import {ReadBuffer, WriteBuffer} from "../buffer.ts";
 import {BoolCodec} from "./boolean.ts";
 import {ICodec, uuid, Codec, CodecKind} from "./ifaces.ts";
@@ -45,6 +47,7 @@ import {KNOWN_TYPENAMES, NULL_CODEC_ID} from "./consts.ts";
 ///////////////////////////////////////////////////////////////////////////////
 
 export class NullCodec extends Codec implements ICodec {
+  static BUFFER: Buffer = new WriteBuffer().writeInt32(0).unwrap();
   encode(_buf: WriteBuffer, _object: any): void {
     throw new Error("null codec cannot used to encode data");
   }
