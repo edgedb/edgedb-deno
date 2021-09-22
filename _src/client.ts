@@ -614,7 +614,7 @@ export class ConnectionImpl {
     let pause = false;
     try {
       pause = this.buffer.feed(data);
-    } catch (e) {
+    } catch (e: any) {
       if (this.messageWaiterReject) {
         this.messageWaiterReject(e);
       } else {
@@ -816,7 +816,7 @@ export class ConnectionImpl {
 
     try {
       await connPromise;
-    } catch (e) {
+    } catch (e: any) {
       conn._abort();
       if (timeoutHappened && e instanceof errors.ClientConnectionClosedError) {
         /* A race between our timeout `timeoutCb` callback and the client
@@ -1189,7 +1189,7 @@ export class ConnectionImpl {
             try {
               [cardinality, inCodec, outCodec, inCodecData, outCodecData] =
                 this._parseDescribeTypeMessage();
-            } catch (e) {
+            } catch (e: any) {
               error = e;
             }
             break;
@@ -1287,7 +1287,7 @@ export class ConnectionImpl {
           if (error == null) {
             try {
               this._parseDataMessages(outCodec, result);
-            } catch (e) {
+            } catch (e: any) {
               error = e;
               this.buffer.finishMessage();
             }
@@ -1363,7 +1363,7 @@ export class ConnectionImpl {
           if (error == null) {
             try {
               this._parseDataMessages(outCodec, result);
-            } catch (e) {
+            } catch (e: any) {
               error = e;
               this.buffer.finishMessage();
             }
@@ -1390,7 +1390,7 @@ export class ConnectionImpl {
             const key = this._getQueryCacheKey(query, asJson, expectOne);
             this.queryCodecCache.set(key, [newCard, inCodec, outCodec]);
             reExec = true;
-          } catch (e) {
+          } catch (e: any) {
             error = e;
           }
           break;
