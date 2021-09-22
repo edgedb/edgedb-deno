@@ -46,8 +46,6 @@ import {
   QueryArgs,
   Connection,
   BorrowReason,
-  IConnectionProxied,
-  onConnectionClose,
   ParseOptions,
   PrepareMessageHeaders,
   ProtocolVersion,
@@ -62,7 +60,6 @@ import {
   ConnectConfig,
   NormalizedConnectConfig,
 } from "./con_utils.ts";
-import {Transaction as LegacyTransaction} from "./legacy_transaction.ts";
 import {Transaction, START_TRANSACTION_IMPL} from "./transaction.ts";
 
 const PROTO_VER: ProtocolVersion = [0, 12];
@@ -129,13 +126,16 @@ export class StandaloneConnection implements Connection {
   [OPTIONS]: Options;
 
   /** @internal */
-  constructor(config: NormalizedConnectConfig) {
-    this.initInner(config);
+  constructor(config: NormalizedConnectConfig, registry: CodecsRegistry) {
+    this.initInner(config, registry);
     this[OPTIONS] = Options.defaults();
   }
 
-  protected initInner(config: NormalizedConnectConfig): void {
-    this[INNER] = new InnerConnection(config);
+  protected initInner(
+    config: NormalizedConnectConfig,
+    registry: CodecsRegistry
+  ): void {
+    this[INNER] = new InnerConnection(config, registry);
   }
 
   protected shallowClone(): this {
@@ -154,33 +154,6 @@ export class StandaloneConnection implements Connection {
   withRetryOptions(opt: RetryOptions): this {
     const result = this.shallowClone();
     result[OPTIONS] = this[OPTIONS].withRetryOptions(opt);
-    return result;
-  }
-
-  async transaction<T>(
-    action: () => Promise<T>,
-    options?: Partial<TransactionOptions>
-  ): Promise<T> {
-    let result: T;
-    // tslint:disable-next-line: no-console
-    console.warn(
-      "The `transaction()` method is deprecated and is scheduled to be " +
-        "removed. Use the `retryingTransaction()` or `rawTransaction()` " +
-        "method instead"
-    );
-    let connection = this[INNER].connection;
-    if (!connection || connection.isClosed()) {
-      connection = await this[INNER].reconnect();
-    }
-    const transaction = new LegacyTransaction(this, options);
-    await transaction.start();
-    try {
-      result = await action();
-      await transaction.commit();
-    } catch (err) {
-      await transaction.rollback();
-      throw err;
-    }
     return result;
   }
 
@@ -346,15 +319,6 @@ export class StandaloneConnection implements Connection {
     }
   }
 
-  async queryOne<T = unknown>(query: string, args?: QueryArgs): Promise<T> {
-    // tslint:disable-next-line: no-console
-    console.warn(
-      "The `queryOne()` method is deprecated and is scheduled to be " +
-        "removed. Use the `querySingle()` method instead"
-    );
-    return this.querySingle(query, args);
-  }
-
   async querySingleJSON(query: string, args?: QueryArgs): Promise<string> {
     const inner = this[INNER];
     const borrowed_for = inner.borrowedFor;
@@ -373,21 +337,13 @@ export class StandaloneConnection implements Connection {
     }
   }
 
-  async queryOneJSON(query: string, args?: QueryArgs): Promise<string> {
-    // tslint:disable-next-line: no-console
-    console.warn(
-      "The `queryOneJSON()` method is deprecated and is scheduled to be " +
-        "removed. Use the `querySingleJSON()` method instead"
-    );
-    return this.querySingleJSON(query, args);
-  }
-
   /** @internal */
   static async connect<S extends StandaloneConnection>(
-    this: new (config: NormalizedConnectConfig) => S,
-    config: NormalizedConnectConfig
+    this: new (config: NormalizedConnectConfig, registry: CodecsRegistry) => S,
+    config: NormalizedConnectConfig,
+    registry: CodecsRegistry
   ): Promise<S> {
-    const conn = new this(config);
+    const conn = new this(config, registry);
     await conn[INNER].reconnect();
     return conn;
   }
@@ -397,10 +353,12 @@ export class InnerConnection {
   borrowedFor?: BorrowReason;
   config: NormalizedConnectConfig;
   connection?: ConnectionImpl;
+  registry: CodecsRegistry;
   _isClosed: boolean; // For compatibility
 
-  constructor(config: NormalizedConnectConfig) {
+  constructor(config: NormalizedConnectConfig, registry: CodecsRegistry) {
     this.config = config;
+    this.registry = registry;
     this._isClosed = false;
   }
 
@@ -454,7 +412,8 @@ export class InnerConnection {
         try {
           this.connection = await ConnectionImpl.connectWithTimeout(
             addr,
-            this.config
+            this.config,
+            this.registry
           );
           return this.connection;
         } catch (e) {
@@ -528,10 +487,14 @@ export class ConnectionImpl {
   protected protocolVersion: ProtocolVersion = PROTO_VER;
 
   /** @internal */
-  protected constructor(sock: net.Socket, config: NormalizedConnectConfig) {
+  protected constructor(
+    sock: net.Socket,
+    config: NormalizedConnectConfig,
+    registry: CodecsRegistry
+  ) {
     this.buffer = new ReadMessageBuffer();
 
-    this.codecsRegistry = new CodecsRegistry();
+    this.codecsRegistry = registry;
     this.queryCodecCache = new LRU({capacity: 1000});
 
     this.lastStatus = null;
@@ -570,10 +533,6 @@ export class ConnectionImpl {
     this.sock.on("close", this._onClose.bind(this));
 
     this.config = config;
-
-    if (config.legacyUUIDMode) {
-      this.codecsRegistry.enableLegacyUUID();
-    }
   }
 
   private async _waitForMessage(): Promise<void> {
@@ -814,10 +773,11 @@ export class ConnectionImpl {
   /** @internal */
   static async connectWithTimeout(
     addr: Address,
-    config: NormalizedConnectConfig
+    config: NormalizedConnectConfig,
+    registry: CodecsRegistry
   ): Promise<ConnectionImpl> {
     const sock = this.newSock(addr, config.tlsOptions);
-    const conn = new this(sock, {...config, addrs: [addr]});
+    const conn = new this(sock, {...config, addrs: [addr]}, registry);
     const connPromise = conn.connect();
     let timeoutCb = null;
     let timeoutHappened = false;
@@ -857,10 +817,14 @@ export class ConnectionImpl {
               // connecting over tls failed
               // try to connect using clear text
               try {
-                return this.connectWithTimeout(addr, {
-                  ...config,
-                  tlsOptions: undefined,
-                });
+                return this.connectWithTimeout(
+                  addr,
+                  {
+                    ...config,
+                    tlsOptions: undefined,
+                  },
+                  registry
+                );
               } catch {
                 // pass
               }
@@ -1604,6 +1568,19 @@ export class RawConnection extends ConnectionImpl {
   // Note that this class, while exported, is not documented.
   // Its API is subject to change.
 
+  static async connectWithTimeout(
+    addr: Address,
+    config: NormalizedConnectConfig
+  ): Promise<RawConnection> {
+    const registry = new CodecsRegistry();
+    return ConnectionImpl.connectWithTimeout.call(
+      RawConnection,
+      addr,
+      config,
+      registry
+    ) as unknown as RawConnection;
+  }
+
   public async rawParse(
     query: string,
     headers?: PrepareMessageHeaders
@@ -1630,13 +1607,6 @@ export class RawConnection extends ConnectionImpl {
   // Mask the actual connection API; only the raw* methods should
   // be used with this class.
 
-  async transaction<T>(
-    action: () => Promise<T>,
-    options?: Partial<TransactionOptions>
-  ): Promise<T> {
-    throw new Error("not implemented");
-  }
-
   async execute(query: string): Promise<void> {
     throw new Error("not implemented");
   }
@@ -1655,18 +1625,6 @@ export class RawConnection extends ConnectionImpl {
     throw new Error("not implemented");
   }
 
-  async queryOne<T = unknown>(
-    query: string,
-    args: QueryArgs = null
-  ): Promise<T> {
-    // tslint:disable-next-line: no-console
-    console.warn(
-      "The `queryOne()` method is deprecated and is scheduled to be " +
-        "removed. Use the `querySingle()` method instead"
-    );
-    return this.querySingle(query, args);
-  }
-
   async queryJSON(query: string, args: QueryArgs = null): Promise<string> {
     throw new Error("not implemented");
   }
@@ -1676,14 +1634,5 @@ export class RawConnection extends ConnectionImpl {
     args: QueryArgs = null
   ): Promise<string> {
     throw new Error("not implemented");
-  }
-
-  async queryOneJSON(query: string, args: QueryArgs = null): Promise<string> {
-    // tslint:disable-next-line: no-console
-    console.warn(
-      "The `queryOneJSON()` method is deprecated and is scheduled to be " +
-        "removed. Use the `querySingleJSON()` method instead"
-    );
-    return this.querySingleJSON(query, args);
   }
 }

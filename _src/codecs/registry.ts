@@ -32,8 +32,6 @@ import {NamedTupleCodec} from "./namedtuple.ts";
 import {EnumCodec} from "./enum.ts";
 import {ObjectCodec} from "./object.ts";
 import {SetCodec} from "./set.ts";
-import {UUIDObjectCodec} from "./uuid.ts";
-import {UUID} from "../datatypes/uuid.ts";
 import {ProtocolVersion} from "../ifaces.ts";
 import {versionGreaterThanOrEqual} from "../utils.ts";
 
@@ -62,7 +60,6 @@ const BIGINT_TYPEID = KNOWN_TYPENAMES.get("std::bigint")!;
 const INT64_TYPEID = KNOWN_TYPENAMES.get("std::int64")!;
 const DATETIME_TYPEID = KNOWN_TYPENAMES.get("std::datetime")!;
 const LOCAL_DATETIME_TYPEID = KNOWN_TYPENAMES.get("cal::local_datetime")!;
-const UUID_TYPEID = KNOWN_TYPENAMES.get("std::uuid")!;
 
 export class CodecsRegistry {
   private codecsBuildCache: LRU<uuid, ICodec>;
@@ -73,10 +70,6 @@ export class CodecsRegistry {
     this.codecs = new LRU({capacity: CODECS_CACHE_SIZE});
     this.codecsBuildCache = new LRU({capacity: CODECS_BUILD_CACHE_SIZE});
     this.customScalarCodecs = new Map();
-  }
-
-  enableLegacyUUID(): void {
-    this.customScalarCodecs.set(UUID_TYPEID, new UUIDObjectCodec(UUID_TYPEID));
   }
 
   setStringCodecs({
@@ -302,9 +295,7 @@ export class CodecsRegistry {
             throw new Error(`no JS codec for ${KNOWN_TYPES.get(tid)}`);
           }
 
-          throw new Error(
-            `node JS codec for the type with ID ${UUID.fromString(tid)}`
-          );
+          throw new Error(`node JS codec for the type with ID ${tid}`);
         }
         if (!(res instanceof ScalarCodec)) {
           throw new Error(

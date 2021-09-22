@@ -29,7 +29,6 @@ export type {NamedTuple} from "./datatypes/namedtuple.ts";
 export type {ObjectShape} from "./datatypes/object.ts";
 export {Set} from "./datatypes/set.ts";
 export type {Tuple} from "./datatypes/tuple.ts";
-export {UUID} from "./datatypes/uuid.ts";
 
 export * from "./errors/index.ts";
 
