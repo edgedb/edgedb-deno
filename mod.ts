@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import _connect from "./_src/client.ts";
+import _connect from "./_src/pool.ts";
 export const connect = _connect;
 export default connect;
 
