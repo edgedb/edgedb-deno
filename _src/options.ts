@@ -8,7 +8,6 @@ export function defaultBackoff(attempt: number): number {
 
 export enum IsolationLevel {
   Serializable = "SERIALIZABLE",
-  RepeatableRead = "REPEATABLE READ",
 }
 
 export enum RetryCondition {
@@ -31,11 +30,19 @@ export interface PartialRetryRule {
   backoff?: BackoffFunction;
 }
 
+export interface SimpleRetryOptions {
+  attempts?: number;
+  backoff?: BackoffFunction;
+}
+
 export class RetryOptions {
   readonly default: RetryRule;
   private overrides: Map<RetryCondition, RetryRule>;
 
-  constructor(attempts: number, backoff: BackoffFunction) {
+  constructor(
+    attempts: number = 3,
+    backoff: BackoffFunction = defaultBackoff
+  ) {
     this.default = new RetryRule(attempts, backoff);
     this.overrides = new Map();
   }
@@ -68,8 +75,14 @@ export class RetryOptions {
   }
 
   static defaults(): RetryOptions {
-    return new RetryOptions(3, defaultBackoff);
+    return new RetryOptions();
   }
+}
+
+export interface SimpleTransactionOptions {
+  isolation?: IsolationLevel;
+  readonly?: boolean;
+  deferrable?: boolean;
 }
 
 export class TransactionOptions {
@@ -77,14 +90,10 @@ export class TransactionOptions {
   readonly readonly: boolean;
   readonly deferrable: boolean;
   constructor({
-    isolation = IsolationLevel.RepeatableRead,
+    isolation = IsolationLevel.Serializable,
     readonly = false,
     deferrable = false,
-  }: {
-    isolation?: IsolationLevel;
-    readonly?: boolean;
-    deferrable?: boolean;
-  } = {}) {
+  }: SimpleTransactionOptions = {}) {
     this.isolation = isolation;
     this.readonly = readonly;
     this.deferrable = deferrable;
@@ -110,18 +119,24 @@ export class Options {
     this.transactionOptions = transactionOptions;
   }
 
-  withTransactionOptions(opt: TransactionOptions): Options {
-    const result = Object.create(Options);
-    result.retryOptions = this.retryOptions;
-    result.transactionOptions = opt;
-    return result;
+  withTransactionOptions(
+    opt: TransactionOptions | SimpleTransactionOptions
+  ): Options {
+    return new Options({
+      retryOptions: this.retryOptions,
+      transactionOptions:
+        opt instanceof TransactionOptions ? opt : new TransactionOptions(opt),
+    });
   }
 
-  withRetryOptions(opt: RetryOptions): Options {
-    const result = Object.create(Options);
-    result.transactionOptions = this.transactionOptions;
-    result.retryOptions = opt;
-    return result;
+  withRetryOptions(opt: RetryOptions | SimpleRetryOptions): Options {
+    return new Options({
+      transactionOptions: this.transactionOptions,
+      retryOptions:
+        opt instanceof RetryOptions
+          ? opt
+          : new RetryOptions(opt.attempts, opt.backoff),
+    });
   }
 
   static defaults(): Options {

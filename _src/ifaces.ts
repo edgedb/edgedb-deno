@@ -27,7 +27,13 @@ import {
 } from "./datatypes/datetime.ts";
 import {Transaction} from "./transaction.ts";
 import {InnerConnection, ConnectionImpl} from "./client.ts";
-import {Options, RetryOptions, TransactionOptions} from "./options.ts";
+import {
+  Options,
+  RetryOptions,
+  SimpleRetryOptions,
+  SimpleTransactionOptions,
+  TransactionOptions,
+} from "./options.ts";
 import {PartialRetryRule} from "./options.ts";
 
 import {Set} from "./datatypes/set.ts";
@@ -61,8 +67,13 @@ export interface ReadOnlyExecutor {
   execute(query: string): Promise<void>;
   query<T = unknown>(query: string, args?: QueryArgs): Promise<T[]>;
   queryJSON(query: string, args?: QueryArgs): Promise<string>;
-  querySingle<T = unknown>(query: string, args?: QueryArgs): Promise<T>;
+  querySingle<T = unknown>(query: string, args?: QueryArgs): Promise<T | null>;
   querySingleJSON(query: string, args?: QueryArgs): Promise<string>;
+  queryRequiredSingle<T = unknown>(
+    query: string,
+    args?: QueryArgs
+  ): Promise<T>;
+  queryRequiredSingleJSON(query: string, args?: QueryArgs): Promise<string>;
 }
 
 export const INNER = Symbol("INNER");
@@ -79,36 +90,62 @@ interface Modifiable {
 export type Executor = ReadOnlyExecutor & Modifiable;
 
 export interface Connection extends Executor {
+  /**
+   * @deprecated
+   */
   rawTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T>;
+  /**
+   * @deprecated
+   */
   retryingTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T>;
-  withTransactionOptions(opt: TransactionOptions): Connection;
-  withRetryOptions(opt: RetryOptions): Connection;
+
+  transaction<T>(action: (transaction: Transaction) => Promise<T>): Promise<T>;
+  withTransactionOptions(
+    opt: TransactionOptions | SimpleTransactionOptions
+  ): Connection;
+  withRetryOptions(opt: RetryOptions | SimpleRetryOptions): Connection;
   close(): Promise<void>;
   isClosed(): boolean;
 }
 
-export interface IPoolStats {
+export interface IClientStats {
   queueLength: number;
   openConnections: number;
 }
 
-export interface Pool extends Executor {
+export interface Client extends Executor {
+  /**
+   * @deprecated
+   */
   rawTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T>;
+  /**
+   * @deprecated
+   */
   retryingTransaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T>;
-  withTransactionOptions(opt: TransactionOptions): Connection;
-  withRetryOptions(opt: RetryOptions): Connection;
+
+  transaction<T>(action: (transaction: Transaction) => Promise<T>): Promise<T>;
+  withTransactionOptions(
+    opt: TransactionOptions | SimpleTransactionOptions
+  ): Client;
+  withRetryOptions(opt: RetryOptions | SimpleRetryOptions): Client;
   close(): Promise<void>;
   isClosed(): boolean;
 
-  getStats(): IPoolStats;
+  ensureConnected(): Promise<this>;
+
+  /**
+   * @deprecated
+   * Get information about the current state of the client.
+   */
+  getStats(): IClientStats;
   terminate(): void;
 }
 

@@ -1,18 +1,31 @@
-import {process} from "https://deno.land/std@0.102.0/node/process.ts";
-import {Buffer} from "https://deno.land/std@0.102.0/node/buffer.ts";
-import * as crypto from "https://deno.land/std@0.102.0/node/crypto.ts";
+import {process} from "https://deno.land/std@0.108.0/node/process.ts";
+import {Buffer} from "https://deno.land/std@0.108.0/node/buffer.ts";
+import * as crypto from "https://deno.land/std@0.108.0/node/crypto.ts";
 import {
   Sha256,
   HmacSha256,
-} from "https://deno.land/std@0.102.0/hash/sha256.ts";
-import path from "https://deno.land/std@0.102.0/node/path.ts";
-import EventEmitter from "https://deno.land/std@0.102.0/node/events.ts";
-import util from "https://deno.land/std@0.102.0/node/util.ts";
+} from "https://deno.land/std@0.108.0/hash/sha256.ts";
+import path from "https://deno.land/std@0.108.0/node/path.ts";
+import EventEmitter from "https://deno.land/std@0.108.0/node/events.ts";
+import util from "https://deno.land/std@0.108.0/node/util.ts";
 
 export {Buffer, path, process, util, crypto};
 
-export function readFileUtf8Sync(path: string): string {
-  return Deno.readTextFileSync(path);
+export function readFileUtf8(path: string): Promise<string> {
+  return Deno.readTextFile(path);
+}
+
+export async function exists(fn: string | URL): Promise<boolean> {
+  fn = fn instanceof URL ? path.fromFileUrl(fn) : fn;
+  try {
+    await Deno.lstat(fn);
+    return true;
+  } catch (err) {
+    if (err instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw err;
+  }
 }
 
 export async function randomBytes(size: number): Promise<Buffer> {
@@ -57,21 +70,12 @@ export function hrTime(): number {
 //       `import * as fs from "https://deno.land/std@0.95.0/node/fs.ts";`
 //       when the 'fs' compat module does not require '--unstable' flag.
 export namespace fs {
-  export function existsSync(fn: string | URL): boolean {
-    fn = fn instanceof URL ? path.fromFileUrl(fn) : fn;
-    try {
-      Deno.lstatSync(fn);
-      return true;
-    } catch (err) {
-      if (err instanceof Deno.errors.NotFound) {
-        return false;
-      }
-      throw err;
-    }
+  export function realpath(path: string): Promise<string> {
+    return Deno.realPath(path);
   }
 
-  export function realpathSync(path: string): string {
-    return Deno.realPathSync(path);
+  export function stat(path: string): Promise<Deno.FileInfo> {
+    return Deno.stat(path);
   }
 }
 
@@ -122,6 +126,18 @@ export namespace net {
 
     setNoDelay() {
       // No deno api for this
+    }
+
+    unref() {
+      // No deno api for this
+      // Without this api, open idle connections will block deno from exiting
+      // after all other tasks are finished
+      return this;
+    }
+
+    ref() {
+      // No deno api for this
+      return this;
     }
 
     pause() {
@@ -192,8 +208,9 @@ export namespace tls {
     host?: string;
     port?: number;
     ALPNProtocols?: string[];
-    ca?: string[];
+    ca?: string | string[];
     checkServerIdentity?: (a: string, b: any) => Error | undefined;
+    rejectUnauthorized?: boolean;
   }
 
   export class TLSSocket extends net.Socket {

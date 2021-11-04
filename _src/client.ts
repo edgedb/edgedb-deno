@@ -51,15 +51,16 @@ import {
   ProtocolVersion,
 } from "./ifaces.ts";
 import * as scram from "./scram.ts";
-import {Options, RetryOptions, TransactionOptions} from "./options.ts";
+import {
+  Options,
+  RetryOptions,
+  SimpleRetryOptions,
+  SimpleTransactionOptions,
+  TransactionOptions,
+} from "./options.ts";
 import {PartialRetryRule} from "./options.ts";
 
-import {
-  parseConnectArguments,
-  Address,
-  ConnectConfig,
-  NormalizedConnectConfig,
-} from "./con_utils.ts";
+import {Address, NormalizedConnectConfig} from "./con_utils.ts";
 import {Transaction, START_TRANSACTION_IMPL} from "./transaction.ts";
 
 const PROTO_VER: ProtocolVersion = [0, 12];
@@ -80,17 +81,30 @@ enum TransactionStatus {
   TRANS_UNKNOWN = 4, // cannot determine status
 }
 
-const ALLOW_CAPABILITIES = 0xff04;
-const EXECUTE_CAPABILITIES_BYTES = Buffer.from(
-  // everything except TRANSACTION = 1 << 2 in network byte order
-  [255, 255, 255, 255, 255, 255, 255, 251]
-);
+enum Capabilities {
+  MODIFICATONS = 0b00001, // query is not read-only
+  SESSION_CONFIG = 0b00010, // query contains session config change
+  TRANSACTION = 0b00100, // query contains start/commit/rollback of
+  // transaction or savepoint manipulation
+  DDL = 0b01000, // query contains DDL
+  PERSISTENT_CONFIG = 0b10000, // server or database config change
+}
+
+const NO_TRANSACTION_CAPABILITIES_BYTES = Buffer.from([
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255,
+  255 & ~Capabilities.TRANSACTION,
+]);
+
 const OLD_ERROR_CODES = new Map([
   [0x05_03_00_01, 0x05_03_01_01], // TransactionSerializationError #2431
   [0x05_03_00_02, 0x05_03_01_02], // TransactionDeadlockError      #2431
 ]);
-
-const DEFAULT_MAX_ITERATIONS = 3;
 
 function sleep(durationMillis: number): Promise<void> {
   return new Promise((accept, reject) => {
@@ -145,13 +159,15 @@ export class StandaloneConnection implements Connection {
     return result;
   }
 
-  withTransactionOptions(opt: TransactionOptions): this {
+  withTransactionOptions(
+    opt: TransactionOptions | SimpleTransactionOptions
+  ): this {
     const result = this.shallowClone();
     result[OPTIONS] = this[OPTIONS].withTransactionOptions(opt);
     return result;
   }
 
-  withRetryOptions(opt: RetryOptions): this {
+  withRetryOptions(opt: RetryOptions | SimpleRetryOptions): this {
     const result = this.shallowClone();
     result[OPTIONS] = this[OPTIONS].withRetryOptions(opt);
     return result;
@@ -173,11 +189,13 @@ export class StandaloneConnection implements Connection {
     return result;
   }
 
-  async retryingTransaction<T>(
+  retryingTransaction = this.transaction;
+
+  async transaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T> {
     let result: T;
-    for (let iteration = 0; iteration < DEFAULT_MAX_ITERATIONS; ++iteration) {
+    for (let iteration = 0; iteration >= 0; ++iteration) {
       const transaction = new Transaction(this);
       await transaction[START_TRANSACTION_IMPL](iteration !== 0);
       try {
@@ -230,7 +248,6 @@ export class StandaloneConnection implements Connection {
           await conn.close();
         }
         this[INNER].connection = undefined;
-        this[INNER]._isClosed = true;
       } finally {
         this.cleanup();
       }
@@ -301,7 +318,10 @@ export class StandaloneConnection implements Connection {
     }
   }
 
-  async querySingle<T = unknown>(query: string, args?: QueryArgs): Promise<T> {
+  async querySingle<T = unknown>(
+    query: string,
+    args?: QueryArgs
+  ): Promise<T | null> {
     const inner = this[INNER];
     const borrowed_for = inner.borrowedFor;
     if (borrowed_for) {
@@ -337,6 +357,48 @@ export class StandaloneConnection implements Connection {
     }
   }
 
+  async queryRequiredSingle<T = unknown>(
+    query: string,
+    args?: QueryArgs
+  ): Promise<T> {
+    const inner = this[INNER];
+    const borrowed_for = inner.borrowedFor;
+    if (borrowed_for) {
+      throw borrowError(borrowed_for);
+    }
+    inner.borrowedFor = BorrowReason.QUERY;
+    let connection = inner.connection;
+    if (!connection || connection.isClosed()) {
+      connection = await inner.reconnect();
+    }
+    try {
+      return await connection.fetch(query, args, false, true, true);
+    } finally {
+      inner.borrowedFor = undefined;
+    }
+  }
+
+  async queryRequiredSingleJSON(
+    query: string,
+    args?: QueryArgs
+  ): Promise<string> {
+    const inner = this[INNER];
+    const borrowed_for = inner.borrowedFor;
+    if (borrowed_for) {
+      throw borrowError(borrowed_for);
+    }
+    inner.borrowedFor = BorrowReason.QUERY;
+    let connection = inner.connection;
+    if (!connection || connection.isClosed()) {
+      connection = await inner.reconnect();
+    }
+    try {
+      return await connection.fetch(query, args, true, true, true);
+    } finally {
+      inner.borrowedFor = undefined;
+    }
+  }
+
   /** @internal */
   static async connect<S extends StandaloneConnection>(
     this: new (config: NormalizedConnectConfig, registry: CodecsRegistry) => S,
@@ -354,12 +416,10 @@ export class InnerConnection {
   config: NormalizedConnectConfig;
   connection?: ConnectionImpl;
   registry: CodecsRegistry;
-  _isClosed: boolean; // For compatibility
 
   constructor(config: NormalizedConnectConfig, registry: CodecsRegistry) {
     this.config = config;
     this.registry = registry;
-    this._isClosed = false;
   }
 
   async getImpl(singleAttempt: boolean = false): Promise<ConnectionImpl> {
@@ -370,8 +430,8 @@ export class InnerConnection {
     return connection;
   }
 
-  isClosed(): boolean {
-    return this._isClosed;
+  get _isClosed(): boolean {
+    return this.connection?.isClosed() ?? false;
   }
 
   logConnectionError(...args: any): void {
@@ -408,7 +468,7 @@ export class InnerConnection {
     let iteration = 1;
     let lastLoggingAt = 0;
     while (true) {
-      for (const addr of this.config.addrs) {
+      for (const addr of [this.config.connectionParams.address]) {
         try {
           this.connection = await ConnectionImpl.connectWithTimeout(
             addr,
@@ -470,7 +530,7 @@ export class ConnectionImpl {
   private queryCodecCache: LRU<string, [number, ICodec, ICodec]>;
 
   private serverSecret: Buffer | null;
-  private serverSettings: Map<string, string>;
+  /** @internal */ serverSettings: Map<string, string>;
   private serverXactStatus: TransactionStatus;
 
   private buffer: ReadMessageBuffer;
@@ -545,10 +605,15 @@ export class ConnectionImpl {
       this.sock.resume();
     }
 
-    await new Promise<void>((resolve, reject) => {
-      this.messageWaiterResolve = resolve;
-      this.messageWaiterReject = reject;
-    });
+    this.sock.ref();
+    try {
+      await new Promise<void>((resolve, reject) => {
+        this.messageWaiterResolve = resolve;
+        this.messageWaiterReject = reject;
+      });
+    } finally {
+      this.sock.unref();
+    }
   }
 
   private _onConnect(): void {
@@ -774,10 +839,14 @@ export class ConnectionImpl {
   static async connectWithTimeout(
     addr: Address,
     config: NormalizedConnectConfig,
-    registry: CodecsRegistry
+    registry: CodecsRegistry,
+    useTls: boolean = true
   ): Promise<ConnectionImpl> {
-    const sock = this.newSock(addr, config.tlsOptions);
-    const conn = new this(sock, {...config, addrs: [addr]}, registry);
+    const sock = this.newSock(
+      addr,
+      useTls ? config.connectionParams.tlsOptions : undefined
+    );
+    const conn = new this(sock, config, registry);
     const connPromise = conn.connect();
     let timeoutCb = null;
     let timeoutHappened = false;
@@ -813,34 +882,39 @@ export class ConnectionImpl {
         let err: errors.ClientConnectionError;
         switch (e.code) {
           case "EPROTO":
-            if (config.tlsOptions != null) {
+            if (useTls === true) {
               // connecting over tls failed
               // try to connect using clear text
               try {
-                return this.connectWithTimeout(
-                  addr,
-                  {
-                    ...config,
-                    tlsOptions: undefined,
-                  },
-                  registry
-                );
+                return this.connectWithTimeout(addr, config, registry, false);
               } catch {
                 // pass
               }
             }
 
-            err = new errors.ClientConnectionFailedError(e.message);
+            err = new errors.ClientConnectionFailedError(
+              `${e.message}\n` +
+                `Attempted to connect using the following credentials:\n` +
+                `${config.connectionParams.explainConfig()}\n`
+            );
             break;
           case "ECONNREFUSED":
           case "ECONNABORTED":
           case "ECONNRESET":
           case "ENOTFOUND": // DNS name not found
           case "ENOENT": // unix socket is not created yet
-            err = new errors.ClientConnectionFailedTemporarilyError(e.message);
+            err = new errors.ClientConnectionFailedTemporarilyError(
+              `${e.message}\n` +
+                `Attempted to connect using the following credentials:\n` +
+                `${config.connectionParams.explainConfig()}\n`
+            );
             break;
           default:
-            err = new errors.ClientConnectionFailedError(e.message);
+            err = new errors.ClientConnectionFailedError(
+              `${e.message}\n` +
+                `Attempted to connect using the following credentials:\n` +
+                `${config.connectionParams.explainConfig()}\n`
+            );
             break;
         }
         err.source = e;
@@ -874,9 +948,9 @@ export class ConnectionImpl {
 
     handshake.writeInt16(2);
     handshake.writeString("user");
-    handshake.writeString(this.config.user);
+    handshake.writeString(this.config.connectionParams.user);
     handshake.writeString("database");
-    handshake.writeString(this.config.database);
+    handshake.writeString(this.config.connectionParams.database);
 
     // No extensions requested
     handshake.writeInt16(0);
@@ -995,7 +1069,7 @@ export class ConnectionImpl {
     const clientNonce = await scram.generateNonce();
     const [clientFirst, clientFirstBare] = scram.buildClientFirstMessage(
       clientNonce,
-      this.config.user
+      this.config.connectionParams.user
     );
 
     const wb = new WriteMessageBuffer();
@@ -1020,7 +1094,7 @@ export class ConnectionImpl {
       scram.parseServerFirstMessage(serverFirst);
 
     const [clientFinal, expectedServerSig] = scram.buildClientFinalMessage(
-      this.config.password || "",
+      this.config.connectionParams.password || "",
       salt,
       itercount,
       clientFirstBare,
@@ -1085,7 +1159,10 @@ export class ConnectionImpl {
     const wb = new WriteMessageBuffer();
 
     wb.beginMessage(chars.$P)
-      .writeHeaders(options?.headers ?? null)
+      .writeHeaders({
+        ...(options?.headers ?? {}),
+        allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES,
+      })
       .writeChar(asJson ? chars.$j : chars.$b)
       .writeChar(expectOne ? chars.$o : chars.$m)
       .writeString("") // statement name
@@ -1247,7 +1324,7 @@ export class ConnectionImpl {
   ): Promise<void> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$E)
-      .writeInt16(0) // no headers
+      .writeHeaders({allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES})
       .writeString("") // statement name
       .writeBuffer(
         args instanceof Buffer ? args : this._encodeArgs(args, inCodec)
@@ -1312,6 +1389,7 @@ export class ConnectionImpl {
     args: QueryArgs,
     asJson: boolean,
     expectOne: boolean,
+    requiredOne: boolean,
     inCodec: ICodec,
     outCodec: ICodec,
     query: string,
@@ -1319,7 +1397,7 @@ export class ConnectionImpl {
   ): Promise<void> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$O);
-    wb.writeInt16(0); // no headers
+    wb.writeHeaders({allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES});
     wb.writeChar(asJson ? chars.$j : chars.$b);
     wb.writeChar(expectOne ? chars.$o : chars.$m);
     wb.writeString(query);
@@ -1396,7 +1474,7 @@ export class ConnectionImpl {
     }
 
     if (reExec) {
-      this._validateFetchCardinality(newCard!, asJson, expectOne);
+      this._validateFetchCardinality(newCard!, asJson, requiredOne);
       return await this._executeFlow(args, inCodec, outCodec, result);
     }
   }
@@ -1412,11 +1490,14 @@ export class ConnectionImpl {
   private _validateFetchCardinality(
     card: char,
     asJson: boolean,
-    expectOne: boolean
+    requiredOne: boolean
   ): void {
-    if (expectOne && card === chars.$n) {
-      const methname = asJson ? "querySingleJSON" : "querySingle";
-      throw new Error(`query executed via ${methname}() returned no data`);
+    if (requiredOne && card === chars.$n) {
+      throw new errors.NoDataError(
+        `query executed via queryRequiredSingle${
+          asJson ? "JSON" : ""
+        }() returned no data`
+      );
     }
   }
 
@@ -1424,18 +1505,20 @@ export class ConnectionImpl {
     query: string,
     args: QueryArgs = null,
     asJson: boolean,
-    expectOne: boolean
+    expectOne: boolean,
+    requiredOne: boolean = false
   ): Promise<any> {
     const key = this._getQueryCacheKey(query, asJson, expectOne);
     const ret = new Set();
 
     if (this.queryCodecCache.has(key)) {
       const [card, inCodec, outCodec] = this.queryCodecCache.get(key)!;
-      this._validateFetchCardinality(card, asJson, expectOne);
+      this._validateFetchCardinality(card, asJson, requiredOne);
       await this._optimisticExecuteFlow(
         args,
         asJson,
         expectOne,
+        requiredOne,
         inCodec,
         outCodec,
         query,
@@ -1448,16 +1531,16 @@ export class ConnectionImpl {
         expectOne,
         false
       );
-      this._validateFetchCardinality(card, asJson, expectOne);
+      this._validateFetchCardinality(card, asJson, requiredOne);
       this.queryCodecCache.set(key, [card, inCodec, outCodec]);
       await this._executeFlow(args, inCodec, outCodec, ret);
     }
 
     if (expectOne) {
-      if (ret && ret.length) {
-        return ret[0];
+      if (requiredOne && !ret.length) {
+        throw new errors.NoDataError("query returned no data");
       } else {
-        throw new Error("query returned no data");
+        return ret[0] ?? (asJson ? "null" : null);
       }
     } else {
       if (ret && ret.length) {
@@ -1476,12 +1559,17 @@ export class ConnectionImpl {
     }
   }
 
-  async execute(query: string): Promise<void> {
+  async execute(
+    query: string,
+    allowTransactionCommands: boolean = false
+  ): Promise<void> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$Q)
-      .writeInt16(1) // headers
-      .writeUInt16(ALLOW_CAPABILITIES)
-      .writeBytes(EXECUTE_CAPABILITIES_BYTES)
+      .writeHeaders({
+        allowCapabilities: !allowTransactionCommands
+          ? NO_TRANSACTION_CAPABILITIES_BYTES
+          : undefined,
+      })
       .writeString(query) // statement name
       .endMessage();
 
@@ -1521,6 +1609,16 @@ export class ConnectionImpl {
 
     if (error != null) {
       throw error;
+    }
+  }
+
+  async resetState(): Promise<void> {
+    if (this.serverXactStatus !== TransactionStatus.TRANS_IDLE) {
+      try {
+        await this.fetch(`rollback`, null, false, false);
+      } catch {
+        this.close();
+      }
     }
   }
 
