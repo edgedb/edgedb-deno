@@ -20,6 +20,8 @@ export {createClient} from "./_src/pool.ts";
 import {createClient} from "./_src/pool.ts";
 export default createClient;
 
+export {connect, createPool} from "./_src/pool.ts";
+
 export {RawConnection as _RawConnection} from "./_src/client.ts";
 
 export type {Connection, Client} from "./_src/ifaces.ts";
