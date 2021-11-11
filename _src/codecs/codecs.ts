@@ -41,6 +41,7 @@ import {
   DurationCodec,
   RelativeDurationCodec,
 } from "./datetime.ts";
+import {ConfigMemoryCodec} from "./memory.ts";
 
 import {KNOWN_TYPENAMES, NULL_CODEC_ID} from "./consts.ts";
 
@@ -108,3 +109,5 @@ registerScalarCodec("cal::local_datetime", LocalDateTimeCodec);
 registerScalarCodec("std::datetime", DateTimeCodec);
 registerScalarCodec("std::duration", DurationCodec);
 registerScalarCodec("cal::relative_duration", RelativeDurationCodec);
+
+registerScalarCodec("cfg::memory", ConfigMemoryCodec);

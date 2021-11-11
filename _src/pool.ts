@@ -170,12 +170,6 @@ class ClientConnectionHolder {
       );
     }
 
-    if (this._connection?.isClosed()) {
-      // When closing, pool connections perform the necessary
-      // cleanup, so we don't have to do anything else here.
-      return;
-    }
-
     if (this._generation !== this._client.generation) {
       // The connection has expired because it belongs to
       // an older generation (Client.expire_connections() has
@@ -647,11 +641,10 @@ class ClientImpl {
       await this._normalizedConnectConfig,
       this._codecsRegistry
     );
-    const suggestedConcurrency = connection[
-      INNER
-    ].connection?.serverSettings.get("suggested_pool_concurrency");
+    const suggestedConcurrency =
+      connection[INNER].connection?.serverSettings.suggested_pool_concurrency;
     if (suggestedConcurrency) {
-      this._suggestedConcurrency = parseInt(suggestedConcurrency, 10);
+      this._suggestedConcurrency = suggestedConcurrency;
       this._resizeHolderPool();
     }
     return connection;

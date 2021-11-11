@@ -25,6 +25,8 @@ export {
   Duration,
 } from "./datatypes/datetime.ts";
 
+export {ConfigMemory} from "./datatypes/memory.ts";
+
 export type {NamedTuple} from "./datatypes/namedtuple.ts";
 export type {ObjectShape} from "./datatypes/object.ts";
 export {Set} from "./datatypes/set.ts";
