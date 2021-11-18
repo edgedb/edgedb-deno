@@ -15,15 +15,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import {
+  borrowError,
+  ConnectionImpl,
+  InnerConnection,
+  StandaloneConnection,
+} from "./client.ts";
 import * as errors from "./errors/index.ts";
-import {BorrowReason, Connection} from "./ifaces.ts";
-import {Executor, QueryArgs} from "./ifaces.ts";
-import {ALLOW_MODIFICATIONS, INNER} from "./ifaces.ts";
-import {getUniqueId} from "./utils.ts";
-import {ConnectionImpl, InnerConnection, borrowError} from "./client.ts";
-import {StandaloneConnection} from "./client.ts";
-import {Set} from "./datatypes/set.ts";
-import {TransactionOptions, IsolationLevel} from "./options.ts";
+import {
+  ALLOW_MODIFICATIONS,
+  BorrowReason,
+  Connection,
+  Executor,
+  INNER,
+  QueryArgs,
+} from "./ifaces.ts";
+import {IsolationLevel, TransactionOptions} from "./options.ts";
 
 export enum TransactionState {
   NEW = 0,

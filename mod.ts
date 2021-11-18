@@ -31,3 +31,6 @@ export {defaultBackoff} from "./_src/options.ts";
 export type {BackoffFunction} from "./_src/options.ts";
 
 export * from "./_src/index.shared.ts";
+
+export * as reflection from "./_src/reflection/index.ts";
+export * as $ from "./_src/reflection/index.ts";

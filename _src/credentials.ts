@@ -1,5 +1,5 @@
-import {readFileUtf8, path, tls} from "./adapter.deno.ts";
-import {validTlsSecurityValues, TlsSecurity} from "./con_utils.ts";
+import {readFileUtf8} from "./adapter.deno.ts";
+import {TlsSecurity, validTlsSecurityValues} from "./con_utils.ts";
 import * as platform from "./platform.ts";
 
 export interface Credentials {
@@ -91,7 +91,7 @@ export function validateCredentials(data: any): Credentials {
   ) {
     throw new Error(
       `\`tls_security\` must be one of ${validTlsSecurityValues
-        .map((val) => `"${val}"`)
+        .map(val => `"${val}"`)
         .join(", ")}`
     );
   }

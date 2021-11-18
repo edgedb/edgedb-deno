@@ -19,24 +19,19 @@
 import {Buffer} from "./globals.deno.ts";
 
 import {
-  LocalDateTime,
-  LocalDate,
-  LocalTime,
   Duration,
+  LocalDate,
+  LocalDateTime,
+  LocalTime,
   RelativeDuration,
 } from "./datatypes/datetime.ts";
-import {Transaction} from "./transaction.ts";
-import {InnerConnection, ConnectionImpl} from "./client.ts";
 import {
-  Options,
   RetryOptions,
   SimpleRetryOptions,
   SimpleTransactionOptions,
   TransactionOptions,
 } from "./options.ts";
-import {PartialRetryRule} from "./options.ts";
-
-import {Set} from "./datatypes/set.ts";
+import {Transaction} from "./transaction.ts";
 
 export type ProtocolVersion = [number, number];
 

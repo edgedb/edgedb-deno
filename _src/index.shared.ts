@@ -32,6 +32,8 @@ export type {ObjectShape} from "./datatypes/object.ts";
 export {Set} from "./datatypes/set.ts";
 export type {Tuple} from "./datatypes/tuple.ts";
 
+export type {Executor} from "./ifaces.ts";
+
 export * from "./errors/index.ts";
 
 /* Private APIs */

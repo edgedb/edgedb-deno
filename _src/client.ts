@@ -18,40 +18,37 @@
 
 import {Buffer} from "./globals.deno.ts";
 
-import {net, hrTime, tls} from "./adapter.deno.ts";
-
-import char, * as chars from "./chars.ts";
-import {resolveErrorCode} from "./errors/resolve.ts";
-import * as errors from "./errors/index.ts";
+import {hrTime, net, tls} from "./adapter.deno.ts";
 import {
-  ReadMessageBuffer,
-  WriteMessageBuffer,
   ReadBuffer,
+  ReadMessageBuffer,
   WriteBuffer,
+  WriteMessageBuffer,
 } from "./buffer.ts";
-import {versionGreaterThan, versionGreaterThanOrEqual} from "./utils.ts";
-import {CodecsRegistry} from "./codecs/registry.ts";
+import char, * as chars from "./chars.ts";
+import {NullCodec, NULL_CODEC} from "./codecs/codecs.ts";
 import {ICodec, uuid} from "./codecs/ifaces.ts";
-import {Set} from "./datatypes/set.ts";
-import LRU from "./lru.ts";
-import {EMPTY_TUPLE_CODEC, EmptyTupleCodec, TupleCodec} from "./codecs/tuple.ts";
 import {NamedTupleCodec} from "./codecs/namedtuple.ts";
 import {ObjectCodec} from "./codecs/object.ts";
-import {NULL_CODEC, NullCodec} from "./codecs/codecs.ts";
+import {CodecsRegistry} from "./codecs/registry.ts";
+import {EmptyTupleCodec, EMPTY_TUPLE_CODEC, TupleCodec} from "./codecs/tuple.ts";
+import {Address, NormalizedConnectConfig} from "./con_utils.ts";
+import {Set} from "./datatypes/set.ts";
+import * as errors from "./errors/index.ts";
+import {resolveErrorCode} from "./errors/resolve.ts";
 import {
   ALLOW_MODIFICATIONS,
+  BorrowReason,
+  Connection,
   INNER,
   OPTIONS,
-  Executor,
-  QueryArgs,
-  Connection,
-  BorrowReason,
   ParseOptions,
   PrepareMessageHeaders,
   ProtocolVersion,
+  QueryArgs,
   ServerSettings,
 } from "./ifaces.ts";
-import * as scram from "./scram.ts";
+import LRU from "./lru.ts";
 import {
   Options,
   RetryOptions,
@@ -59,10 +56,9 @@ import {
   SimpleTransactionOptions,
   TransactionOptions,
 } from "./options.ts";
-import {PartialRetryRule} from "./options.ts";
-
-import {Address, NormalizedConnectConfig} from "./con_utils.ts";
-import {Transaction, START_TRANSACTION_IMPL} from "./transaction.ts";
+import * as scram from "./scram.ts";
+import {START_TRANSACTION_IMPL, Transaction} from "./transaction.ts";
+import {versionGreaterThan, versionGreaterThanOrEqual} from "./utils.ts";
 
 const PROTO_VER: ProtocolVersion = [0, 13];
 const PROTO_VER_MIN: ProtocolVersion = [0, 9];
@@ -521,12 +517,12 @@ export class ConnectionImpl {
   private config: NormalizedConnectConfig;
   private paused: boolean;
   private connected: boolean = false;
-
+  // @ts-ignore
   private lastStatus: string | null;
 
   private codecsRegistry: CodecsRegistry;
   private queryCodecCache: LRU<string, [number, ICodec, ICodec]>;
-
+  // @ts-ignore
   private serverSecret: Buffer | null;
   /** @internal */ serverSettings: ServerSettings;
   private serverXactStatus: TransactionStatus;
@@ -690,7 +686,7 @@ export class ConnectionImpl {
       pause = this.buffer.feed(data);
     } catch (e: any) {
       if (this.messageWaiterReject) {
-        this.messageWaiterReject(e);
+        this.messageWaiterReject(e as Error);
       } else {
         throw e;
       }
@@ -777,9 +773,11 @@ export class ConnectionImpl {
   }
 
   private _parseErrorMessage(): Error {
+    // @ts-ignore
     const severity = this.buffer.readChar();
     const code = this.buffer.readUInt32();
     const message = this.buffer.readString();
+    // @ts-ignore
     const attrs = this._parseHeaders();
     const errorType = resolveErrorCode(OLD_ERROR_CODES.get(code) ?? code);
     this.buffer.finishMessage();
