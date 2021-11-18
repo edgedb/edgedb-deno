@@ -124,7 +124,6 @@ const run = async () => {
         break;
       case "--output-dir":
         options.outputDir = getVal();
-        console.log(`Got output-dir: ${options.outputDir}`);
         break;
       case "--force-overwrite":
         options.forceOverwrite = true;
