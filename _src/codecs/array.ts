@@ -17,7 +17,7 @@
  */
 
 import {ICodec, Codec, ScalarCodec, uuid, CodecKind} from "./ifaces.ts";
-import {WriteBuffer, ReadBuffer} from "../buffer.ts";
+import {WriteBuffer, ReadBuffer} from "../primitives/buffer.ts";
 
 export class ArrayCodec extends Codec implements ICodec {
   private subCodec: ICodec;

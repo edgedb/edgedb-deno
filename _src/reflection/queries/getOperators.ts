@@ -1,4 +1,4 @@
-import {Connection} from "../../ifaces.ts";
+import {Executor} from "../../ifaces.ts";
 import {StrictMap} from "../strictMap.ts";
 
 import {Param, Typemod} from "./getFunctions.ts";
@@ -22,7 +22,7 @@ export type OperatorTypes = typeutil.depromisify<
   ReturnType<typeof getOperators>
 >;
 
-export const getOperators = async (cxn: Connection) => {
+export const getOperators = async (cxn: Executor) => {
   const operatorsJson = await cxn.queryJSON(`
     with module schema
     select Operator {

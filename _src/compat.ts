@@ -18,7 +18,7 @@
 
 import {Buffer} from "./globals.deno.ts";
 
-import * as bi from "./bigint.ts";
+import * as bi from "./primitives/bigint.ts";
 import {ymd2ord, ord2ymd} from "./datatypes/dateutil.ts";
 
 /* A compatibility layer for symbols/functions required in both

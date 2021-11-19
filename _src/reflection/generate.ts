@@ -3,9 +3,9 @@ import {process} from "../globals.deno.ts";
 import {fs, path, exists, readFileUtf8} from "../adapter.deno.ts";
 
 import {DirBuilder, dts, r, t} from "./builders.ts";
-import {createClient, Connection} from "../../mod.ts";
+import {createClient, Client} from "../../mod.ts";
 
-import {ConnectConfig} from "../con_utils.ts";
+import {ConnectConfig} from "../conUtils.ts";
 
 import {getCasts, Casts} from "./queries/getCasts.ts";
 import {getScalars, ScalarTypes} from "./queries/getScalars.ts";
@@ -51,7 +51,7 @@ export async function generateQB(params: {
   console.log(JSON.stringify(params, null, 2));
   // tslint:disable-next-line
   console.log(`Connecting to EdgeDB instance...`);
-  let cxn: Connection;
+  let cxn: Client;
   try {
     cxn = await createClient({
       ...connectionConfig,

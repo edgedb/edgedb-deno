@@ -21,7 +21,7 @@ import {Buffer} from "../globals.deno.ts";
 import {KNOWN_TYPENAMES} from "./consts.ts";
 
 import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces.ts";
-import {ReadBuffer, WriteBuffer} from "../buffer.ts";
+import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 
 import {
   introspectMethod,

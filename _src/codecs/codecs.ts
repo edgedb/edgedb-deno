@@ -18,7 +18,7 @@
 
 import {Buffer} from "../globals.deno.ts";
 
-import {ReadBuffer, WriteBuffer} from "../buffer.ts";
+import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {BoolCodec} from "./boolean.ts";
 import {ICodec, uuid, Codec, CodecKind} from "./ifaces.ts";
 import {

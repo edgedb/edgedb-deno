@@ -18,7 +18,7 @@
 
 import {Buffer} from "../globals.deno.ts";
 
-import {ReadBuffer, WriteBuffer} from "../buffer.ts";
+import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {KNOWN_TYPES} from "./consts.ts";
 
 export type uuid = string;

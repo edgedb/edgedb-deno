@@ -23,6 +23,7 @@ export {
   LocalDate,
   LocalTime,
   Duration,
+  RelativeDuration,
 } from "./datatypes/datetime.ts";
 
 export {ConfigMemory} from "./datatypes/memory.ts";
@@ -39,12 +40,12 @@ export * from "./errors/index.ts";
 /* Private APIs */
 import * as codecs from "./codecs/ifaces.ts";
 import * as reg from "./codecs/registry.ts";
-import * as buf from "./buffer.ts";
+import * as buf from "./primitives/buffer.ts";
 import * as introspect from "./datatypes/introspect.ts";
 export const _CodecsRegistry = reg.CodecsRegistry;
 export const _ReadBuffer = buf.ReadBuffer;
 export const _introspect = introspect.introspect;
 export type _ICodec = codecs.ICodec;
 
-import {plugJSBI} from "./bigint.ts";
+import {plugJSBI} from "./primitives/bigint.ts";
 export const _plugJSBI = plugJSBI;

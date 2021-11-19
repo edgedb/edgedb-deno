@@ -1,4 +1,4 @@
-import {Connection} from "../../ifaces.ts";
+import {Executor} from "../../ifaces.ts";
 import {typeutil} from "../util/typeutil.ts";
 
 type Cast = {
@@ -29,10 +29,7 @@ const reachableFrom: (
 
 export type Casts = typeutil.depromisify<ReturnType<typeof getCasts>>;
 
-export const getCasts = async (
-  cxn: Connection,
-  params?: {debug?: boolean}
-) => {
+export const getCasts = async (cxn: Executor, params?: {debug?: boolean}) => {
   const allCastsRaw = await cxn.queryJSON(`WITH MODULE schema
         SELECT Cast {
             id,

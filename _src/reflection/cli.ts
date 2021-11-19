@@ -9,7 +9,7 @@ import {
   ConnectConfig,
   parseConnectArguments,
   validTlsSecurityValues,
-} from "../con_utils.ts";
+} from "../conUtils.ts";
 import {configFileHeader, exitWithError, generateQB} from "./generate.ts";
 
 interface Options {

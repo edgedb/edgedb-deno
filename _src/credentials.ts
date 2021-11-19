@@ -1,5 +1,5 @@
 import {readFileUtf8} from "./adapter.deno.ts";
-import {TlsSecurity, validTlsSecurityValues} from "./con_utils.ts";
+import {TlsSecurity, validTlsSecurityValues} from "./conUtils.ts";
 import * as platform from "./platform.ts";
 
 export interface Credentials {

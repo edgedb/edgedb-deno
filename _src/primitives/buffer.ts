@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./globals.deno.ts";
+import {Buffer} from "../globals.deno.ts";
 
 import char, * as chars from "./chars.ts";
 import {RingBuffer} from "./ring.ts";
 import * as bi from "./bigint.ts";
-import * as compat from "./compat.ts";
-import {MessageHeaders, HeaderCodes} from "./ifaces.ts";
+import * as compat from "../compat.ts";
+import {MessageHeaders, HeaderCodes} from "../ifaces.ts";
 
 /* WriteBuffer over-allocation */
 const BUFFER_INC_SIZE: number = 4096;

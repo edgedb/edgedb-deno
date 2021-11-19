@@ -17,7 +17,7 @@
  */
 
 import {inspect} from "../compat.ts";
-import * as bi from "../bigint.ts";
+import * as bi from "../primitives/bigint.ts";
 
 import {
   daysInMonth,

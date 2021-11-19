@@ -18,7 +18,7 @@
 
 import {Buffer} from "../globals.deno.ts";
 
-import {ReadBuffer, WriteBuffer} from "../buffer.ts";
+import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ICodec, ScalarCodec} from "./ifaces.ts";
 
 export class BytesCodec extends ScalarCodec implements ICodec {

@@ -17,7 +17,7 @@
  */
 
 import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
-import {WriteBuffer, ReadBuffer} from "../buffer.ts";
+import {WriteBuffer, ReadBuffer} from "../primitives/buffer.ts";
 import {ArrayCodec} from "./array.ts";
 import {Set} from "../datatypes/set.ts";
 

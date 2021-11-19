@@ -16,15 +16,14 @@
  * limitations under the License.
  */
 
-export {createClient} from "./_src/pool.ts";
-import {createClient} from "./_src/pool.ts";
+export {createClient} from "./_src/client.ts";
+import {createClient} from "./_src/client.ts";
 export default createClient;
 
-export {connect, createPool} from "./_src/pool.ts";
+export {RawBinaryConnection as _RawBinaryConnection} from "./_src/rawBinaryConn.ts";
 
-export {RawConnection as _RawConnection} from "./_src/client.ts";
-
-export type {Connection, Client} from "./_src/ifaces.ts";
+export type {Executor} from "./_src/ifaces.ts";
+export type {Client, ConnectOptions} from "./_src/client.ts";
 
 export {IsolationLevel, RetryCondition, RetryOptions} from "./_src/options.ts";
 export {defaultBackoff} from "./_src/options.ts";

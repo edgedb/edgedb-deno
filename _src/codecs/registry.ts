@@ -18,8 +18,8 @@
 
 import {Buffer} from "../globals.deno.ts";
 
-import {ReadBuffer} from "../buffer.ts";
-import LRU from "../lru.ts";
+import {ReadBuffer} from "../primitives/buffer.ts";
+import LRU from "../primitives/lru.ts";
 import {ICodec, uuid, ScalarCodec} from "./ifaces.ts";
 import {NULL_CODEC, SCALAR_CODECS} from "./codecs.ts";
 import {NULL_CODEC_ID, KNOWN_TYPES, KNOWN_TYPENAMES} from "./consts.ts";

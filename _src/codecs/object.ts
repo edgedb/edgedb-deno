@@ -19,7 +19,7 @@
 import {Buffer} from "../globals.deno.ts";
 
 import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
-import {ReadBuffer, WriteBuffer} from "../buffer.ts";
+import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ONE, AT_LEAST_ONE} from "./consts.ts";
 import {
   generateType,
