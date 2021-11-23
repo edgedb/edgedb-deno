@@ -17,11 +17,11 @@
  */
 
 import {hrTime} from "./adapter.deno.ts";
-import * as errors from "./errors/index.ts";
-import {sleep} from "./utils.ts";
 import {CodecsRegistry} from "./codecs/registry.ts";
 import {NormalizedConnectConfig} from "./conUtils.ts";
+import * as errors from "./errors/index.ts";
 import {RawConnection} from "./rawConn.ts";
+import {sleep} from "./utils.ts";
 
 export async function retryingConnect(
   config: NormalizedConnectConfig,

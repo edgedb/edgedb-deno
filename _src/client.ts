@@ -16,12 +16,14 @@
  * limitations under the License.
  */
 
+import {CodecsRegistry} from "./codecs/registry.ts";
+import {
+  ConnectConfig,
+  NormalizedConnectConfig,
+  parseConnectArguments,
+} from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
-import {ConnectConfig} from "./conUtils.ts";
-import {parseConnectArguments, NormalizedConnectConfig} from "./conUtils.ts";
-import {LifoQueue} from "./primitives/queues.ts";
-
-import {retryingConnect} from "./retry.ts";
+import {Executor, QueryArgs} from "./ifaces.ts";
 import {
   Options,
   RetryOptions,
@@ -29,20 +31,18 @@ import {
   SimpleTransactionOptions,
   TransactionOptions,
 } from "./options.ts";
-
-import {CodecsRegistry} from "./codecs/registry.ts";
-
-import {QueryArgs, Executor} from "./ifaces.ts";
-import {Transaction} from "./transaction.ts";
-import {Deferred} from "./primitives/deferred.ts";
+import Event from "./primitives/event.ts";
+import {LifoQueue} from "./primitives/queues.ts";
 import {RawConnection} from "./rawConn.ts";
+import {retryingConnect} from "./retry.ts";
+import {Transaction} from "./transaction.ts";
 import {sleep} from "./utils.ts";
 
 export class ClientConnectionHolder {
   private _pool: ClientPool;
   private _connection: RawConnection | null;
   private _options: Options | null;
-  private _inUse: Deferred<void> | null;
+  private _inUse: Event | null;
 
   constructor(pool: ClientPool) {
     this._pool = pool;
@@ -55,11 +55,9 @@ export class ClientConnectionHolder {
     return this._options ?? Options.defaults();
   }
 
-  async _getConnection(
-    singleConnect: boolean = false
-  ): Promise<RawConnection> {
+  async _getConnection(): Promise<RawConnection> {
     if (!this._connection || this._connection.isClosed()) {
-      this._connection = await this._pool.getNewConnection(singleConnect);
+      this._connection = await this._pool.getNewConnection();
     }
     return this._connection;
   }
@@ -76,7 +74,7 @@ export class ClientConnectionHolder {
     }
 
     this._options = options;
-    this._inUse = new Deferred<void>();
+    this._inUse = new Event();
 
     return this;
   }
@@ -90,18 +88,11 @@ export class ClientConnectionHolder {
     }
 
     this._options = null;
-    await this._release();
-  }
-
-  private async _release(): Promise<void> {
-    if (this._inUse === null) {
-      return;
-    }
 
     await this._connection?.resetState();
 
     if (!this._inUse.done) {
-      await this._inUse.setResult();
+      this._inUse.set();
     }
 
     this._inUse = null;
@@ -113,7 +104,7 @@ export class ClientConnectionHolder {
   /** @internal */
   async _waitUntilReleasedAndClose(): Promise<void> {
     if (this._inUse) {
-      await this._inUse.promise;
+      await this._inUse.wait();
     }
     await this._connection?.close();
   }
@@ -125,14 +116,27 @@ export class ClientConnectionHolder {
   async transaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T> {
-    let result: T;
-    for (let iteration = 0; iteration >= 0; ++iteration) {
+    let result: T | void;
+    for (let iteration = 0; true; ++iteration) {
       const transaction = await Transaction._startTransaction(this);
+
+      let commitFailed = false;
       try {
-        result = await action(transaction);
+        result = await Promise.race([
+          action(transaction),
+          transaction._waitForConnAbort(),
+        ]);
+        try {
+          await transaction._commit();
+        } catch (err) {
+          commitFailed = true;
+          throw err;
+        }
       } catch (err) {
         try {
-          await transaction._rollback();
+          if (!commitFailed) {
+            await transaction._rollback();
+          }
         } catch (rollback_err) {
           if (!(rollback_err instanceof errors.EdgeDBError)) {
             // We ignore EdgeDBError errors on rollback, retrying
@@ -142,7 +146,8 @@ export class ClientConnectionHolder {
         }
         if (
           err instanceof errors.EdgeDBError &&
-          err.hasTag(errors.SHOULD_RETRY)
+          err.hasTag(errors.SHOULD_RETRY) &&
+          !(commitFailed && err instanceof errors.ClientConnectionError)
         ) {
           const rule = this.options.retryOptions.getRuleForException(err);
           if (iteration + 1 >= rule.attempts) {
@@ -153,16 +158,40 @@ export class ClientConnectionHolder {
         }
         throw err;
       }
-      // TODO(tailhook) sort out errors on commit, early network errors
-      // and some other errors could be retried
-      // NOTE: we can't retry on all the same errors as we don't know if
-      // commit is succeeded before the database have received it or after
-      // it have been done but network is dropped before we were able
-      // to receive a response
-      await transaction._commit();
+      return result as T;
+    }
+  }
+
+  private async retryingFetch(
+    query: string,
+    args: QueryArgs | undefined,
+    asJson: boolean,
+    expectOne: boolean,
+    requiredOne?: boolean
+  ): Promise<any> {
+    let result: any;
+    for (let iteration = 0; true; ++iteration) {
+      const conn = await this._getConnection();
+      try {
+        result = await conn.fetch(query, args, asJson, expectOne, requiredOne);
+      } catch (err) {
+        if (
+          err instanceof errors.EdgeDBError &&
+          err.hasTag(errors.SHOULD_RETRY) &&
+          // query is readonly
+          conn.getQueryCapabilities(query, asJson, expectOne) === 0
+        ) {
+          const rule = this.options.retryOptions.getRuleForException(err);
+          if (iteration + 1 >= rule.attempts) {
+            throw err;
+          }
+          await sleep(rule.backoff(iteration + 1));
+          continue;
+        }
+        throw err;
+      }
       return result;
     }
-    throw Error("unreachable");
   }
 
   async execute(query: string): Promise<void> {
@@ -171,42 +200,35 @@ export class ClientConnectionHolder {
   }
 
   async query(query: string, args?: QueryArgs): Promise<any> {
-    const conn = await this._getConnection();
-    return await conn.fetch(query, args, false, false);
+    return this.retryingFetch(query, args, false, false);
   }
 
   async queryJSON(query: string, args?: QueryArgs): Promise<string> {
-    const conn = await this._getConnection();
-    return await conn.fetch(query, args, true, false);
+    return this.retryingFetch(query, args, true, false);
   }
 
   async querySingle(query: string, args?: QueryArgs): Promise<any> {
-    const conn = await this._getConnection();
-    return await conn.fetch(query, args, false, true);
+    return this.retryingFetch(query, args, false, true);
   }
 
   async querySingleJSON(query: string, args?: QueryArgs): Promise<string> {
-    const conn = await this._getConnection();
-    return await conn.fetch(query, args, true, true);
+    return this.retryingFetch(query, args, true, true);
   }
 
   async queryRequiredSingle(query: string, args?: QueryArgs): Promise<any> {
-    const conn = await this._getConnection();
-    return await conn.fetch(query, args, false, true, true);
+    return this.retryingFetch(query, args, false, true, true);
   }
 
   async queryRequiredSingleJSON(
     query: string,
     args?: QueryArgs
   ): Promise<string> {
-    const conn = await this._getConnection();
-    return await conn.fetch(query, args, true, true, true);
+    return this.retryingFetch(query, args, true, true, true);
   }
 }
 
 class ClientPool {
-  private _closed: boolean;
-  private _closing: boolean;
+  private _closing: Event | null;
   private _queue: LifoQueue<ClientConnectionHolder>;
   private _holders: ClientConnectionHolder[];
   private _userConcurrency: number | null;
@@ -223,8 +245,7 @@ class ClientPool {
     this._holders = [];
     this._userConcurrency = options.concurrency ?? null;
     this._suggestedConcurrency = null;
-    this._closing = false;
-    this._closed = false;
+    this._closing = null;
     this._connectConfig = {...options, ...(dsn !== undefined ? {dsn} : {})};
 
     this._resizeHolderPool();
@@ -249,20 +270,27 @@ class ClientPool {
   _getStats(): {openConnections: number; queueLength: number} {
     return {
       queueLength: this._queue.pending,
-      openConnections: this._holders.filter((holder) => holder.connectionOpen)
+      openConnections: this._holders.filter(holder => holder.connectionOpen)
         .length,
     };
   }
 
   async ensureConnected(): Promise<void> {
+    if (this._closing) {
+      throw new errors.InterfaceError(
+        this._closing.done ? "The client is closed" : "The client is closing"
+      );
+    }
+
     if (this._getStats().openConnections > 0) {
       return;
     }
-    const connHolder = this._holders[0];
-    if (!connHolder) {
-      throw new Error("Client pool is empty");
+    const connHolder = await this._queue.get();
+    try {
+      await connHolder._getConnection();
+    } finally {
+      this._queue.push(connHolder);
     }
-    await connHolder._getConnection();
   }
 
   private get _concurrency(): number {
@@ -297,17 +325,9 @@ class ClientPool {
     );
   }
 
-  async getNewConnection(
-    singleConnect: boolean = false
-  ): Promise<RawConnection> {
+  async getNewConnection(): Promise<RawConnection> {
     const config = await this._getNormalizedConnectConfig();
-    const connection = singleConnect
-      ? await RawConnection.connectWithTimeout(
-          config.connectionParams.address,
-          config,
-          this._codecsRegistry
-        )
-      : await retryingConnect(config, this._codecsRegistry);
+    const connection = await retryingConnect(config, this._codecsRegistry);
     const suggestedConcurrency =
       connection.serverSettings.suggested_pool_concurrency;
     if (
@@ -320,18 +340,12 @@ class ClientPool {
     return connection;
   }
 
-  private _checkState(): void {
-    if (this._closing) {
-      throw new errors.InterfaceError("The client is closing");
-    }
-
-    if (this._closed) {
-      throw new errors.InterfaceError("The client is closed");
-    }
-  }
-
   async acquireHolder(options: Options): Promise<ClientConnectionHolder> {
-    this._checkState();
+    if (this._closing) {
+      throw new errors.InterfaceError(
+        this._closing.done ? "The client is closed" : "The client is closing"
+      );
+    }
 
     const connectionHolder = await this._queue.get();
     try {
@@ -355,37 +369,41 @@ class ClientPool {
    * in ``close()``, the client will terminate by calling ``terminate()``.
    */
   async close(): Promise<void> {
-    // Ref. asyncio_pool aclose
-    if (this._closed) {
-      return;
+    if (this._closing) {
+      return await this._closing.wait();
     }
 
-    this._checkState();
-
-    this._closing = true;
+    this._closing = new Event();
 
     const warningTimeoutId = setTimeout(() => {
-      this._warn_on_long_close();
+      // tslint:disable-next-line: no-console
+      console.warn(
+        "Client.close() is taking over 60 seconds to complete. " +
+          "Check if you have any unreleased connections left."
+      );
     }, 60e3);
 
     try {
       await Promise.all(
-        this._holders.map((connectionHolder) =>
+        this._holders.map(connectionHolder =>
           connectionHolder._waitUntilReleasedAndClose()
         )
       );
-    } catch (error) {
-      this.terminate();
-      throw error;
+    } catch (err) {
+      this._terminate();
+      this._closing.setError(err);
+      throw err;
     } finally {
       clearTimeout(warningTimeoutId);
-      this._closed = true;
-      this._closing = false;
     }
+
+    this._closing.set();
   }
 
-  isClosed(): boolean {
-    return this._closed;
+  private _terminate(): void {
+    for (const connectionHolder of this._holders) {
+      connectionHolder.terminate();
+    }
   }
 
   /**
@@ -393,25 +411,20 @@ class ClientPool {
    * closed, it returns without doing anything.
    */
   terminate(): void {
-    if (this._closed) {
+    if (this._closing?.done) {
       return;
     }
 
-    this._checkState();
+    this._terminate();
 
-    for (const connectionHolder of this._holders) {
-      connectionHolder.terminate();
+    if (!this._closing) {
+      this._closing = new Event();
+      this._closing.set();
     }
-
-    this._closed = true;
   }
 
-  private _warn_on_long_close(): void {
-    // tslint:disable-next-line: no-console
-    console.warn(
-      "Client.close() is taking over 60 seconds to complete. " +
-        "Check if you have any unreleased connections left."
-    );
+  isClosed(): boolean {
+    return !!this._closing;
   }
 }
 

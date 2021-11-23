@@ -19,33 +19,35 @@
 import {Buffer} from "./globals.deno.ts";
 
 import {net, tls} from "./adapter.deno.ts";
-
-import char, * as chars from "./primitives/chars.ts";
-import {resolveErrorCode} from "./errors/resolve.ts";
-import * as errors from "./errors/index.ts";
-import {
-  ReadMessageBuffer,
-  WriteMessageBuffer,
-  ReadBuffer,
-  WriteBuffer,
-} from "./primitives/buffer.ts";
-import {versionGreaterThan, versionGreaterThanOrEqual} from "./utils.ts";
-import {CodecsRegistry} from "./codecs/registry.ts";
+import {NullCodec, NULL_CODEC} from "./codecs/codecs.ts";
 import {ICodec, uuid} from "./codecs/ifaces.ts";
-import {Set} from "./datatypes/set.ts";
-import LRU from "./primitives/lru.ts";
-import {EMPTY_TUPLE_CODEC, EmptyTupleCodec, TupleCodec} from "./codecs/tuple.ts";
 import {NamedTupleCodec} from "./codecs/namedtuple.ts";
 import {ObjectCodec} from "./codecs/object.ts";
-import {NULL_CODEC, NullCodec} from "./codecs/codecs.ts";
+import {CodecsRegistry} from "./codecs/registry.ts";
+import {EmptyTupleCodec, EMPTY_TUPLE_CODEC, TupleCodec} from "./codecs/tuple.ts";
+import {Address, NormalizedConnectConfig} from "./conUtils.ts";
+import {Set} from "./datatypes/set.ts";
+import * as errors from "./errors/index.ts";
+import {resolveErrorCode} from "./errors/resolve.ts";
 import {
-  QueryArgs,
+  HeaderCodes,
   ParseOptions,
+  PrepareMessageHeaders,
   ProtocolVersion,
+  QueryArgs,
   ServerSettings,
 } from "./ifaces.ts";
+import {
+  ReadBuffer,
+  ReadMessageBuffer,
+  WriteBuffer,
+  WriteMessageBuffer,
+} from "./primitives/buffer.ts";
+import char, * as chars from "./primitives/chars.ts";
+import Event from "./primitives/event.ts";
+import LRU from "./primitives/lru.ts";
 import * as scram from "./scram.ts";
-import {Address, NormalizedConnectConfig} from "./conUtils.ts";
+import {versionGreaterThan, versionGreaterThanOrEqual} from "./utils.ts";
 
 const PROTO_VER: ProtocolVersion = [0, 13];
 const PROTO_VER_MIN: ProtocolVersion = [0, 9];
@@ -99,7 +101,7 @@ export class RawConnection {
   protected lastStatus: string | null;
 
   private codecsRegistry: CodecsRegistry;
-  private queryCodecCache: LRU<string, [number, ICodec, ICodec]>;
+  private queryCodecCache: LRU<string, [number, ICodec, ICodec, number]>;
 
   protected serverSecret: Buffer | null;
   /** @internal */ serverSettings: ServerSettings;
@@ -107,16 +109,14 @@ export class RawConnection {
 
   private buffer: ReadMessageBuffer;
 
-  private messageWaiterResolve: ((value: any) => void) | null;
-  private messageWaiterReject: ((error: Error) => void) | null;
+  private messageWaiter: Event | null;
 
-  private connWaiter: Promise<void>;
-  private connWaiterResolve: ((value: any) => void) | null;
-  private connWaiterReject: ((value: any) => void) | null;
+  private connWaiter: Event;
 
   protocolVersion: ProtocolVersion = PROTO_VER;
 
   private _abortedWith: Error | null = null;
+  connAbortWaiter: Event;
 
   /** @internal */
   protected constructor(
@@ -135,15 +135,10 @@ export class RawConnection {
     this.serverSettings = {};
     this.serverXactStatus = TransactionStatus.TRANS_UNKNOWN;
 
-    this.messageWaiterResolve = null;
-    this.messageWaiterReject = null;
+    this.messageWaiter = null;
 
-    this.connWaiterResolve = null;
-    this.connWaiterReject = null;
-    this.connWaiter = new Promise<void>((resolve, reject) => {
-      this.connWaiterResolve = resolve;
-      this.connWaiterReject = reject;
-    });
+    this.connWaiter = new Event();
+    this.connAbortWaiter = new Event();
 
     this.paused = false;
     this.sock = sock;
@@ -178,36 +173,23 @@ export class RawConnection {
     }
 
     this.sock.ref();
+    this.messageWaiter = new Event();
     try {
-      await new Promise<void>((resolve, reject) => {
-        this.messageWaiterResolve = resolve;
-        this.messageWaiterReject = reject;
-      });
+      await this.messageWaiter.wait();
     } finally {
       this.sock.unref();
     }
   }
 
   private _onConnect(): void {
-    if (this.connWaiterResolve) {
-      this.connWaiterResolve(true);
-      this.connWaiterReject = null;
-      this.connWaiterResolve = null;
-    }
+    this.connWaiter.set();
   }
 
   private _abortWaiters(err: Error): void {
-    if (this.connWaiterReject) {
-      this.connWaiterReject(err);
-      this.connWaiterReject = null;
-      this.connWaiterResolve = null;
+    if (!this.connWaiter.done) {
+      this.connWaiter.setError(err);
     }
-
-    if (this.messageWaiterReject) {
-      this.messageWaiterReject(err);
-      this.messageWaiterResolve = null;
-      this.messageWaiterReject = null;
-    }
+    this.messageWaiter?.setError(err);
   }
 
   private _onClose(): void {
@@ -219,7 +201,7 @@ export class RawConnection {
       `the connection has been aborted`
     );
 
-    if (this.connWaiterReject || this.messageWaiterReject) {
+    if (!this.connWaiter.done || this.messageWaiter) {
       /* This can happen, particularly, during the connect phase.
          If the connection is aborted with a client-side timeout, there can be
          a situation where the connection has actually been established,
@@ -227,6 +209,13 @@ export class RawConnection {
          without invoking the 'error' event.
       */
       this._abortWaiters(newErr);
+    }
+
+    if (
+      this.buffer.takeMessage() &&
+      this.buffer.getMessageType() === chars.$E
+    ) {
+      newErr.source = this._parseErrorMessage();
     }
 
     this._abortWithError(newErr);
@@ -252,6 +241,15 @@ export class RawConnection {
     this._abort();
   }
 
+  getConnAbortError(): Error {
+    return (
+      this._abortedWith ??
+      new errors.ClientConnectionClosedError(
+        `connection closed with Client.close()`
+      )
+    );
+  }
+
   private _checkState(): void {
     if (this._abortedWith != null) {
       throw this._abortedWith;
@@ -263,8 +261,9 @@ export class RawConnection {
     try {
       pause = this.buffer.feed(data);
     } catch (e: any) {
-      if (this.messageWaiterReject) {
-        this.messageWaiterReject(e);
+      if (this.messageWaiter) {
+        this.messageWaiter.setError(e);
+        this.messageWaiter = null;
       } else {
         throw e;
       }
@@ -275,11 +274,10 @@ export class RawConnection {
       this.sock.pause();
     }
 
-    if (this.messageWaiterResolve) {
+    if (this.messageWaiter) {
       if (this.buffer.takeMessage()) {
-        this.messageWaiterResolve(true);
-        this.messageWaiterResolve = null;
-        this.messageWaiterReject = null;
+        this.messageWaiter.set();
+        this.messageWaiter = null;
       }
     }
   }
@@ -309,10 +307,17 @@ export class RawConnection {
     number,
     ICodec,
     ICodec,
+    number,
     Buffer,
     Buffer
   ] {
-    this._ignoreHeaders();
+    const headers = this._parseHeaders();
+    let capabilities = -1;
+    if (headers.has(HeaderCodes.capabilities)) {
+      capabilities = Number(
+        headers.get(HeaderCodes.capabilities)!.readBigInt64BE()
+      );
+    }
 
     const cardinality: char = this.buffer.readChar();
 
@@ -340,7 +345,14 @@ export class RawConnection {
       );
     }
 
-    return [cardinality, inCodec, outCodec, inTypeData, outTypeData];
+    return [
+      cardinality,
+      inCodec,
+      outCodec,
+      capabilities,
+      inTypeData,
+      outTypeData,
+    ];
   }
 
   private _parseCommandCompleteMessage(): string {
@@ -354,7 +366,7 @@ export class RawConnection {
     this.buffer.readChar(); // ignore severity
     const code = this.buffer.readUInt32();
     const message = this.buffer.readString();
-    this._parseHeaders(); // ignore attrs
+    this._ignoreHeaders(); // ignore attrs
     const errorType = resolveErrorCode(OLD_ERROR_CODES.get(code) ?? code);
     this.buffer.finishMessage();
 
@@ -566,7 +578,7 @@ export class RawConnection {
   }
 
   private async connect(): Promise<void> {
-    await this.connWaiter;
+    await this.connWaiter.wait();
 
     if (this.sock instanceof tls.TLSSocket) {
       if (this.sock.alpnProtocol !== "edgedb-binary") {
@@ -792,7 +804,7 @@ export class RawConnection {
     expectOne: boolean,
     alwaysDescribe: boolean,
     options?: ParseOptions
-  ): Promise<[number, ICodec, ICodec, Buffer | null, Buffer | null]> {
+  ): Promise<[number, ICodec, ICodec, number, Buffer | null, Buffer | null]> {
     const wb = new WriteMessageBuffer();
 
     wb.beginMessage(chars.$P)
@@ -815,6 +827,7 @@ export class RawConnection {
     let outTypeId: uuid | void;
     let inCodec: ICodec | null;
     let outCodec: ICodec | null;
+    let capabilities: number = -1;
     let parsing = true;
     let error: Error | null = null;
     let inCodecData: Buffer | null = null;
@@ -829,7 +842,12 @@ export class RawConnection {
 
       switch (mtype) {
         case chars.$1: {
-          this._ignoreHeaders();
+          const headers = this._parseHeaders();
+          if (headers.has(HeaderCodes.capabilities)) {
+            capabilities = Number(
+              headers.get(HeaderCodes.capabilities)!.readBigInt64BE()
+            );
+          }
           cardinality = this.buffer.readChar();
           inTypeId = this.buffer.readUUID();
           outTypeId = this.buffer.readUUID();
@@ -886,8 +904,14 @@ export class RawConnection {
         switch (mtype) {
           case chars.$T: {
             try {
-              [cardinality, inCodec, outCodec, inCodecData, outCodecData] =
-                this._parseDescribeTypeMessage();
+              [
+                cardinality,
+                inCodec,
+                outCodec,
+                capabilities,
+                inCodecData,
+                outCodecData,
+              ] = this._parseDescribeTypeMessage();
             } catch (e: any) {
               error = e;
             }
@@ -921,7 +945,14 @@ export class RawConnection {
       );
     }
 
-    return [cardinality, inCodec, outCodec, inCodecData, outCodecData];
+    return [
+      cardinality,
+      inCodec,
+      outCodec,
+      capabilities,
+      inCodecData,
+      outCodecData,
+    ];
   }
 
   private _encodeArgs(args: QueryArgs, inCodec: ICodec): Buffer {
@@ -1050,6 +1081,7 @@ export class RawConnection {
     let error: Error | null = null;
     let parsing = true;
     let newCard: char | null = null;
+    let capabilities = -1;
 
     while (parsing) {
       if (!this.buffer.takeMessage()) {
@@ -1086,9 +1118,15 @@ export class RawConnection {
 
         case chars.$T: {
           try {
-            [newCard, inCodec, outCodec] = this._parseDescribeTypeMessage();
+            [newCard, inCodec, outCodec, capabilities] =
+              this._parseDescribeTypeMessage();
             const key = this._getQueryCacheKey(query, asJson, expectOne);
-            this.queryCodecCache.set(key, [newCard, inCodec, outCodec]);
+            this.queryCodecCache.set(key, [
+              newCard,
+              inCodec,
+              outCodec,
+              capabilities,
+            ]);
             reExec = true;
           } catch (e: any) {
             error = e;
@@ -1164,14 +1202,14 @@ export class RawConnection {
         ret
       );
     } else {
-      const [card, inCodec, outCodec] = await this._parse(
+      const [card, inCodec, outCodec, capabilities] = await this._parse(
         query,
         asJson,
         expectOne,
         false
       );
       this._validateFetchCardinality(card, asJson, requiredOne);
-      this.queryCodecCache.set(key, [card, inCodec, outCodec]);
+      this.queryCodecCache.set(key, [card, inCodec, outCodec, capabilities]);
       await this._executeFlow(args, inCodec, outCodec, ret);
     }
 
@@ -1196,6 +1234,15 @@ export class RawConnection {
         }
       }
     }
+  }
+
+  getQueryCapabilities(
+    query: string,
+    asJson: boolean,
+    expectOne: boolean
+  ): number | null {
+    const key = this._getQueryCacheKey(query, asJson, expectOne);
+    return this.queryCodecCache.get(key)?.[3] ?? null;
   }
 
   async execute(
@@ -1268,6 +1315,9 @@ export class RawConnection {
       this.sock.destroy();
     }
     this.connected = false;
+    if (!this.connAbortWaiter.done) {
+      this.connAbortWaiter.set();
+    }
   }
 
   isClosed(): boolean {
@@ -1300,5 +1350,31 @@ export class RawConnection {
 
     const opts = {...options, host, port};
     return tls.connect(opts);
+  }
+
+  // These methods are exposed for use by EdgeDB Studio
+  public async rawParse(
+    query: string,
+    headers?: PrepareMessageHeaders
+  ): Promise<[Buffer, Buffer, ProtocolVersion]> {
+    const result = await this._parse(query, false, false, true, {
+      headers,
+    });
+    return [result[4]!, result[5]!, this.protocolVersion];
+  }
+
+  public async rawExecute(encodedArgs: Buffer | null = null): Promise<Buffer> {
+    const result = new WriteBuffer();
+    let inCodec = EMPTY_TUPLE_CODEC;
+    if (versionGreaterThanOrEqual(this.protocolVersion, [0, 12])) {
+      inCodec = NULL_CODEC;
+    }
+    await this._executeFlow(
+      encodedArgs, // arguments
+      inCodec, // inCodec -- to encode lack of arguments.
+      EMPTY_TUPLE_CODEC, // outCodec -- does not matter, it will not be used.
+      result
+    );
+    return result.unwrap();
   }
 }

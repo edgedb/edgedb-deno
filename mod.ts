@@ -20,7 +20,7 @@ export {createClient} from "./_src/client.ts";
 import {createClient} from "./_src/client.ts";
 export default createClient;
 
-export {RawBinaryConnection as _RawBinaryConnection} from "./_src/rawBinaryConn.ts";
+export {RawConnection as _RawConnection} from "./_src/rawConn.ts";
 
 export type {Executor} from "./_src/ifaces.ts";
 export type {Client, ConnectOptions} from "./_src/client.ts";
