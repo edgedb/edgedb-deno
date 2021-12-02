@@ -3,6 +3,8 @@ import type {GeneratorParams} from "../generate.ts";
 import * as introspect from "../queries/getTypes.ts";
 import {frag, getRef, joinFrags, quote, splitName} from "../util/genutil.ts";
 
+const singletonObjectTypes = new Set(["std::FreeObject"]);
+
 export const getStringRepresentation: (
   type: introspect.Type,
   params: {
@@ -277,13 +279,15 @@ export const generateObjectTypes = (params: GeneratorParams) => {
     body.addExport(ref);
     body.addRefsDefaultExport(ref, `$${name}`);
 
+    const typeCard = singletonObjectTypes.has(type.name) ? "One" : "Many";
+
     body.nl();
     body.writeln([
       dts`declare `,
       ...frag`const ${literal}`,
       // tslint:disable-next-line
-      t`: $.$expr_PathNode<$.TypeSet<${ref}, $.Cardinality.Many>, null, true> `,
-      r`= _.syntax.$expr_PathNode($.$toSet(${ref}, $.Cardinality.Many), null, true);`,
+      t`: $.$expr_PathNode<$.TypeSet<${ref}, $.Cardinality.${typeCard}>, null, true> `,
+      r`= _.syntax.$expr_PathNode($.$toSet(${ref}, $.Cardinality.${typeCard}), null, true);`,
     ]);
     body.nl();
 

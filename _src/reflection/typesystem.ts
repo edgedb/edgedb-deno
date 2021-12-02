@@ -149,7 +149,6 @@ export interface ObjectType<
   __name__: Name;
   __pointers__: Pointers;
   __shape__: Shape;
-  // __polys__: Polys;
 }
 
 export type PropertyTypes =
@@ -221,17 +220,15 @@ type shapeElementToTs<Pointer extends PropertyDesc | LinkDesc, Element> = [
   : [Element] extends [boolean]
   ? pointerToTsType<Pointer> | undefined
   : Element extends TypeSet
-  ? setToTsType<Element>
+  ? setToTsType<TypeSet<Element["__element__"], Pointer["cardinality"]>>
   : Pointer extends LinkDesc
-  ? Element extends (...scope: any[]) => any
-    ? computeObjectShape<
-        Pointer["target"]["__pointers__"] & Pointer["properties"],
-        ReturnType<Element>
-      >
-    : Element extends object
-    ? computeObjectShape<
-        Pointer["target"]["__pointers__"] & Pointer["properties"],
-        Element
+  ? Element extends object
+    ? computeTsTypeCard<
+        computeObjectShape<
+          Pointer["target"]["__pointers__"] & Pointer["properties"],
+          Element
+        >,
+        Pointer["cardinality"]
       >
     : never
   : never;
@@ -331,7 +328,9 @@ type ArrayTypeToTsType<Type extends ArrayType> = BaseTypeToTsType<
 /////////////////////////
 export type baseTupleElementsToTupleType<T extends typeutil.tupleOf<TypeSet>> =
   {
-    [k in keyof T]: T[k] extends TypeSet ? T[k]["__element__"] : never;
+    [k in keyof T]: T[k] extends TypeSet
+      ? getPrimitiveBaseType<T[k]["__element__"]>
+      : never;
   };
 export type tupleElementsToTupleType<T extends typeutil.tupleOf<TypeSet>> =
   baseTupleElementsToTupleType<T> extends BaseTypeTuple
@@ -374,11 +373,9 @@ type TupleItemsToTsType<Items extends BaseTypeTuple> = {
 /////////////////////////
 /// NAMED TUPLE TYPE
 /////////////////////////
-type literalShapeToType<T extends NamedTupleLiteralShape> = NamedTupleType<
-  {
-    [k in keyof T]: T[k]["__element__"];
-  }
->;
+type literalShapeToType<T extends NamedTupleLiteralShape> = NamedTupleType<{
+  [k in keyof T]: getPrimitiveBaseType<T[k]["__element__"]>;
+}>;
 type shapeCardinalities<Shape extends NamedTupleLiteralShape> =
   Shape[keyof Shape]["__cardinality__"];
 type inferNamedTupleCardinality<Shape extends NamedTupleLiteralShape> = [
@@ -433,11 +430,7 @@ export type BaseTypeToTsType<Type extends BaseType> = typeutil.flatten<
     : Type extends NamedTupleType
     ? NamedTupleTypeToTsType<Type>
     : Type extends ObjectType
-    ? computeObjectShape<
-        Type["__pointers__"],
-        Type["__shape__"]
-        // Type["__polys__"]
-      >
+    ? computeObjectShape<Type["__pointers__"], Type["__shape__"]>
     : never
 >;
 
@@ -446,26 +439,29 @@ export type setToTsType<Set extends TypeSet> = computeTsType<
   Set["__cardinality__"]
 >;
 
-export type computeTsType<
-  T extends BaseType,
+type computeTsTypeCard<
+  T extends any,
   C extends Cardinality
 > = Cardinality extends C
-  ? unknown
-  : BaseType extends T
   ? unknown
   : C extends Cardinality.Empty
   ? null
   : C extends Cardinality.One
-  ? BaseTypeToTsType<T>
+  ? T
   : C extends Cardinality.AtLeastOne
-  ? [BaseTypeToTsType<T>, ...BaseTypeToTsType<T>[]]
+  ? [T, ...T[]]
   : C extends Cardinality.AtMostOne
-  ? BaseTypeToTsType<T> | null
+  ? T | null
   : C extends Cardinality.Many
-  ? BaseTypeToTsType<T>[]
+  ? T[]
   : C extends Cardinality
   ? unknown
   : never;
+
+export type computeTsType<
+  T extends BaseType,
+  C extends Cardinality
+> = BaseType extends T ? unknown : computeTsTypeCard<BaseTypeToTsType<T>, C>;
 
 export type propToTsType<Prop extends PropertyDesc> =
   Prop extends PropertyDesc<infer Type, infer Card>
@@ -487,6 +483,10 @@ export type pointerToTsType<El extends PropertyDesc | LinkDesc> =
 ///////////////////
 // TYPE HELPERS
 ///////////////////
+
+export type getPrimitiveBaseType<T extends BaseType> = T extends ScalarType
+  ? ScalarType<T["__name__"], T["__tstype__"]>
+  : T;
 
 export function isScalarType(type: BaseType): type is ScalarType {
   return type.__kind__ === TypeKind.scalar;

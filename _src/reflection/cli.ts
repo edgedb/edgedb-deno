@@ -309,7 +309,10 @@ the query builder directory? The following line will be added:
           true
         )
       ) {
-        await fs.appendFile(gitIgnorePath, `${vcsLine}\n`);
+        await fs.appendFile(
+          gitIgnorePath,
+          `${gitIgnoreFile === null ? "" : "\n"}${vcsLine}\n`
+        );
       }
     }
   }

@@ -42,7 +42,7 @@ export function toPrimitiveJsType(
       return "boolean";
 
     case "std::bigint":
-      return "BigInt";
+      return "bigint";
 
     case "std::datetime":
       return "Date";
@@ -55,9 +55,15 @@ export function toPrimitiveJsType(
       return "_.edgedb.LocalDate";
     case "cal::local_time":
       return "_.edgedb.LocalTime";
+    case "cal::relative_duration":
+      return "_.edgedb.RelativeDuration";
+    case "cfg::memory":
+      return "_.edgedb.ConfigMemory";
+
+    case "std::bytes":
+      return "Buffer";
 
     case "std::decimal":
-    case "std::bytes":
     // TODO
 
     default:
