@@ -23,13 +23,14 @@ import * as errors from "./errors/index.ts";
 import {RawConnection} from "./rawConn.ts";
 import {sleep} from "./utils.ts";
 
+let lastLoggingAt = 0;
+
 export async function retryingConnect(
   config: NormalizedConnectConfig,
   registry: CodecsRegistry
 ): Promise<RawConnection> {
   const maxTime =
     config.waitUntilAvailable === 0 ? 0 : hrTime() + config.waitUntilAvailable;
-  let lastLoggingAt = 0;
   while (true) {
     try {
       return await RawConnection.connectWithTimeout(
