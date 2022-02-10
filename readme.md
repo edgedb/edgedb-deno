@@ -1,7 +1,5 @@
 # EdgeDB Deno driver
 
-⚠️ `edgedb-deno` support is currently experimental. [See details](#tls) ⚠️
-
 [![deno land](http://img.shields.io/badge/available%20on-deno.land/x-lightgrey.svg?logo=deno&labelColor=black)](https://deno.land/x/edgedb) [![Build Status](https://github.com/edgedb/edgedb-js/workflows/Tests/badge.svg?event=push&branch=master)](https://github.com/edgedb/edgedb-js/actions) [![Join GitHub discussions](https://img.shields.io/badge/join-github%20discussions-green)](https://github.com/edgedb/edgedb/discussions)
 
 `edgedb-deno` is the official [EdgeDB](https://github.com/edgedb/edgedb)
@@ -28,32 +26,24 @@ changes.
 
 ## Quick start
 
-First install EdgeDB, then create and start an EdgeDB instance. The tutorial
-in the EdgeDB docs is a good place to get started:
-https://www.edgedb.com/docs/tutorial/index/
+First install EdgeDB, then create and start an EdgeDB instance. The quickstart
+guide in the EdgeDB docs is a good place to get started:
+https://www.edgedb.com/docs/guides/quickstart
 
 Now you're ready to import `edgedb-deno` and start querying your database:
 
 ```typescript
 import * as edgedb from "https://deno.land/x/edgedb/mod.ts";
 
-const conn = await edgedb.connect("tutorial");
+const client = edgedb.createClient();
 
-console.log(await conn.queryOne("SELECT 1 + <int64>$num", { num: 2 }));
+console.log(await client.querySingle("SELECT 1 + <int64>$num", { num: 2 }));
 
-await conn.close();
+await client.close();
 ```
 
 For the full documentation see the
 [edgedb-js docs](https://www.edgedb.com/docs/clients/01_js/index).
-
-## TLS
-
-Deno doesn't currently support TLS ALPN for client connections. Because of this
-deno support is experimental. To use deno with the latest version of EdgeDB the
-server needs to be run using either the `--allow-insecure-binary-clients` flag
-or setting the `EDGEDB_SERVER_ALLOW_INSECURE_BINARY_CLIENTS` environment
-variable.
 
 ## Permissions
 
@@ -62,6 +52,10 @@ The permissions `edgedb-deno` may require are detailed below:
 ### `--allow-net` (required)
 
 This permission is required to connect to EdgeDB instances.
+
+### `--unstable` flag (required)
+
+`edgedb-deno` uses the unstable `alpnProtocols` API on `Deno.connectTls`.
 
 ### `--allow-env` (optional)
 
@@ -72,9 +66,3 @@ the `.edgedb` directory is located).
 
 Needed if connecting with an instance name, to read the instance credentials
 file from `<home-dir>/.edgedb/credentials`.
-
-## `--unstable` flag
-
-`edgedb-deno` supports connecting to an EdgeDB instance via a unix socket file,
-however this currently requires using the `--unstable` flag, and the
-`--allow-read` and `--allow-write` permissions for the socket file.
