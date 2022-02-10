@@ -24,3 +24,4 @@ export * as introspect from "./queries/getTypes.ts";
 export * from "./hydrate.ts";
 export * from "./path.ts";
 export * from "./literal.ts";
+export * from "./funcops.ts";
