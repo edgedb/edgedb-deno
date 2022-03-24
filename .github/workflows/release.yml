@@ -17,13 +17,13 @@ jobs:
         with:
           fetch-depth: 0
           submodules: true
-           
+
       - name: Read Version
         run: |
+          echo $(cat release.txt)
           echo "curr_version=$(cat release.txt)" >> $GITHUB_ENV
 
       - name: Create Release
-        if: steps.publish.outputs.type != 'none'
         id: create_release
         uses: actions/create-release@latest
         env:
