@@ -32,4 +32,4 @@ jobs:
           tag_name: v${{ env.curr_version }}
           release_name: v${{ env.curr_version }}
           commitish: ${{ github.ref }}
-          draft: true
+          draft: false
