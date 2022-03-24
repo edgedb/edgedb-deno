@@ -1,0 +1,31 @@
+# .github/release.yml
+
+name: release
+on:
+  push:
+    branches:
+      - "master"
+      - "ci"
+    paths:
+      - release.txt
+
+jobs:
+  tag_and_release:
+    runs-on: ubuntu-latest
+    steps:
+      
+      - name: Read Version
+        run: |
+          echo "curr_version=$(cat release.txt)" >> $GITHUB_ENV
+
+      - name: Create Release
+        if: steps.publish.outputs.type != 'none'
+        id: create_release
+        uses: actions/create-release@latest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: v${{ env.curr_version }}
+          release_name: v${{ env.curr_version }}
+          commitish: ${{ github.ref }}
+          draft: true
