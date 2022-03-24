@@ -6,7 +6,7 @@ on:
     branches:
       - "main"
     paths:
-      - release.txt
+      - version.txt
 
 jobs:
   tag_and_release:
@@ -19,8 +19,8 @@ jobs:
 
       - name: Read Version
         run: |
-          echo $(cat release.txt)
-          echo "curr_version=$(cat release.txt)" >> $GITHUB_ENV
+          echo $(cat version.txt)
+          echo "curr_version=$(cat version.txt)" >> $GITHUB_ENV
 
       - name: Create Release
         id: create_release
