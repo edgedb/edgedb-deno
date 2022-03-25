@@ -28,11 +28,6 @@ export {
 
 export {ConfigMemory} from "./datatypes/memory.ts";
 
-export type {NamedTuple} from "./datatypes/namedtuple.ts";
-export type {ObjectShape} from "./datatypes/object.ts";
-export {Set} from "./datatypes/set.ts";
-export type {Tuple} from "./datatypes/tuple.ts";
-
 export type {Executor} from "./ifaces.ts";
 
 export * from "./errors/index.ts";
@@ -41,10 +36,8 @@ export * from "./errors/index.ts";
 import * as codecs from "./codecs/ifaces.ts";
 import * as reg from "./codecs/registry.ts";
 import * as buf from "./primitives/buffer.ts";
-import * as introspect from "./datatypes/introspect.ts";
 export const _CodecsRegistry = reg.CodecsRegistry;
 export const _ReadBuffer = buf.ReadBuffer;
-export const _introspect = introspect.introspect;
 export type _ICodec = codecs.ICodec;
 
 import {plugJSBI} from "./primitives/bigint.ts";

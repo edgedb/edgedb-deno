@@ -25,7 +25,7 @@ import {ymd2ord, ord2ymd} from "./datatypes/dateutil.ts";
    browser and NodeJS environments.
 */
 
-/* We customize the `console.log()` rendering of EdgeDB objects
+/* We customize the `console.log()` rendering of some EdgeDB objects
    in NodeJS. In browsers, however, it's not possible to customize that,
    so we're just creating a shell of "util.inspect" so that NodeJS code
    can compile unchanged for the browser environment.
@@ -63,7 +63,7 @@ export function decodeInt64ToString(buf: Buffer): string {
     throw new Error("expected 8 bytes buffer");
   }
 
-  let inp: number[] = Array.from(buf);
+let inp: number[] = Array.from(buf);
 
   let negative = false;
   if (inp[0] & 0x80) {

@@ -23,18 +23,6 @@ import {KNOWN_TYPENAMES} from "./consts.ts";
 import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces.ts";
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 
-import {
-  introspectMethod,
-  IntrospectableType,
-  CollectionInfo,
-} from "../datatypes/introspect.ts";
-
-class Tuple extends Array implements IntrospectableType {
-  [introspectMethod](): CollectionInfo {
-    return {kind: "tuple"};
-  }
-}
-
 export class TupleCodec extends Codec implements ICodec, IArgsCodec {
   private subCodecs: ICodec[];
 
@@ -98,7 +86,7 @@ export class TupleCodec extends Codec implements ICodec, IArgsCodec {
     }
 
     const elemBuf = ReadBuffer.alloc();
-    const result = new Tuple(els);
+    const result = new Array(els);
     for (let i = 0; i < els; i++) {
       buf.discard(4); // reserved
       const elemLen = buf.readInt32();
@@ -149,7 +137,7 @@ export class EmptyTupleCodec extends Codec implements ICodec {
         `cannot decode empty Tuple: expected 0 elements, received ${els}`
       );
     }
-    return new Tuple();
+    return [];
   }
 
   getSubcodecs(): ICodec[] {

@@ -75,6 +75,7 @@ export const HeaderCodes = {
   implicitTypeids: 0xff03,
   allowCapabilities: 0xff04,
   capabilities: 0x1001,
+  explicitObjectids: 0xff05,
 };
 
 export type MessageHeaders = {
@@ -85,6 +86,7 @@ export interface PrepareMessageHeaders {
   implicitLimit?: string;
   implicitTypenames?: "true";
   implicitTypeids?: "true";
+  explicitObjectids?: "false";
 }
 
 export interface ParseOptions {

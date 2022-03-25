@@ -21,18 +21,14 @@ import {Buffer} from "../globals.deno.ts";
 import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ONE, AT_LEAST_ONE} from "./consts.ts";
-import {
-  generateType,
-  ObjectConstructor,
-  EDGE_POINTER_IS_LINKPROP,
-} from "../datatypes/object.ts";
+
+const EDGE_POINTER_IS_LINKPROP = 1 << 1;
 
 export class ObjectCodec extends Codec implements ICodec {
   private codecs: ICodec[];
   private names: string[];
   private namesSet: Set<string>;
   private cardinalities: number[];
-  private objectType: ObjectConstructor;
 
   constructor(
     tid: uuid,
@@ -56,7 +52,6 @@ export class ObjectCodec extends Codec implements ICodec {
     this.names = newNames;
     this.namesSet = new Set(newNames);
     this.cardinalities = cards;
-    this.objectType = generateType(newNames, flags);
   }
 
   encode(_buf: WriteBuffer, _object: any): void {
@@ -163,7 +158,6 @@ export class ObjectCodec extends Codec implements ICodec {
   decode(buf: ReadBuffer): any {
     const codecs = this.codecs;
     const names = this.names;
-    const objType = this.objectType;
 
     const els = buf.readUInt32();
     if (els !== codecs.length) {
@@ -173,7 +167,7 @@ export class ObjectCodec extends Codec implements ICodec {
     }
 
     const elemBuf = ReadBuffer.alloc();
-    const result: any = new objType();
+    const result: any = {};
     for (let i = 0; i < els; i++) {
       buf.discard(4); // reserved
       const elemLen = buf.readInt32();
