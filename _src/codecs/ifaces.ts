@@ -39,7 +39,6 @@ export interface ICodec {
   decode(buf: ReadBuffer): any;
 
   getSubcodecs(): ICodec[];
-  getSubcodecsNames(): string[];
   getKind(): CodecKind;
   getKnownTypeName(): string;
 }
@@ -59,10 +58,6 @@ export abstract class Codec {
 
   getKnownTypeName(): string {
     return "anytype";
-  }
-
-  getSubcodecsNames(): string[] {
-    return [];
   }
 }
 
