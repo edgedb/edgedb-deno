@@ -1,4 +1,3 @@
-import {typeutil} from "./index.ts";
 import {Cardinality, ExpressionKind} from "./enums.ts";
 import type {
   BaseType,
@@ -11,6 +10,7 @@ import type {
   PropertyShape,
   TypeSet,
 } from "./typesystem.ts";
+import {typeutil} from "./index.ts";
 import {cardinalityUtil} from "./util/cardinalityUtil.ts";
 
 // get the set representing the result of a path traversal
@@ -142,6 +142,14 @@ type pathifyLinkProps<
     : unknown;
 };
 
+export type getPropsShape<T extends ObjectType> = typeutil.flatten<
+  typeutil.stripNever<{
+    [k in keyof T["__pointers__"]]: T["__pointers__"][k]["__kind__"] extends "property"
+      ? true
+      : never;
+  }>
+>;
+
 export type $expr_PathNode<
   Root extends ObjectTypeSet = ObjectTypeSet,
   Parent extends PathParent | null = PathParent | null,
@@ -152,6 +160,7 @@ export type $expr_PathNode<
   __parent__: Parent;
   __kind__: ExpressionKind.PathNode;
   __exclusive__: Exclusive;
+  "*": getPropsShape<Root["__element__"]>;
 }>;
 
 export type $expr_TypeIntersection<
