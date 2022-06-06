@@ -355,6 +355,10 @@ export class RawConnection extends BaseRawConnection {
           }
 
           this.protocolVersion = [hi, lo];
+          this.isLegacyProtocol = !versionGreaterThanOrEqual(
+            this.protocolVersion,
+            [1, 0]
+          );
           break;
         }
 
