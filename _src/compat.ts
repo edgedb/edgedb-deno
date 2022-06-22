@@ -16,11 +16,6 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./globals.deno.ts";
-
-import * as bi from "./primitives/bigint.ts";
-import {ymd2ord, ord2ymd} from "./datatypes/dateutil.ts";
-
 /* A compatibility layer for symbols/functions required in both
    browser and NodeJS environments.
 */
@@ -30,6 +25,8 @@ import {ymd2ord, ord2ymd} from "./datatypes/dateutil.ts";
    so we're just creating a shell of "util.inspect" so that NodeJS code
    can compile unchanged for the browser environment.
 */
+
+import {Buffer} from "./globals.deno.ts";
 
 interface Inspect {
   (...args: any): null;
@@ -63,12 +60,12 @@ export function decodeInt64ToString(buf: Buffer): string {
     throw new Error("expected 8 bytes buffer");
   }
 
-let inp: number[] = Array.from(buf);
+  let inp: number[] = Array.from(buf);
 
   let negative = false;
   if (inp[0] & 0x80) {
     // A negative integer; invert all bits.
-    inp = inp.map((x) => x ^ 0xff);
+    inp = inp.map(x => x ^ 0xff);
     // Account for the two's compliment's `1`.
     inp[inp.length - 1]++;
 
@@ -111,56 +108,4 @@ let inp: number[] = Array.from(buf);
   }
 
   return negative ? `-${result}` : result;
-}
-
-export interface EdgeDBDateTime {
-  year: number;
-  month: number;
-  day: number;
-  hour: number;
-  minute: number;
-  second: number;
-  microsecond: number;
-}
-
-const DATESHIFT_ORD = ymd2ord(2000, 1, 1);
-
-export function decodeMicrosecondsToEdgeDBDateTime(
-  microseconds: bi.BigIntLike
-): EdgeDBDateTime {
-  const bigUsPerDay = bi.make(86_400_000_000);
-  const dayNumber = bi.div(microseconds, bigUsPerDay);
-
-  let timeUs = Number(bi.sub(microseconds, bi.mul(dayNumber, bigUsPerDay)));
-
-  let ord = Number(dayNumber) + DATESHIFT_ORD;
-
-  if (timeUs < 0) {
-    timeUs = 86_400_000_000 + timeUs;
-    ord -= 1;
-  }
-
-  const [_year, month, day] = ord2ymd(ord);
-
-  // EdgeDB doesn't have year zero
-  const year = _year <= 0 ? _year - 1 : _year;
-
-  const hour = Math.floor(timeUs / 3_600_000_000);
-  timeUs -= hour * 3_600_000_000;
-
-  const minute = Math.floor(timeUs / 60_000_000);
-  timeUs -= minute * 60_000_000;
-
-  const second = Math.floor(timeUs / 1000_000);
-  timeUs -= second * 1000_000;
-
-  return {
-    year,
-    month,
-    day,
-    hour,
-    minute,
-    second,
-    microsecond: timeUs,
-  };
 }
