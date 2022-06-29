@@ -11,6 +11,7 @@ import {getCasts, Casts} from "./queries/getCasts.ts";
 import {getScalars, ScalarTypes} from "./queries/getScalars.ts";
 import {FunctionTypes, getFunctions} from "./queries/getFunctions.ts";
 import {getOperators, OperatorTypes} from "./queries/getOperators.ts";
+import {getGlobals, Globals} from "./queries/getGlobals.ts";
 import * as introspect from "./queries/getTypes.ts";
 import * as genutil from "./util/genutil.ts";
 
@@ -20,6 +21,7 @@ import {generateObjectTypes} from "./generators/generateObjectTypes.ts";
 import {generateRuntimeSpec} from "./generators/generateRuntimeSpec.ts";
 import {generateFunctionTypes} from "./generators/generateFunctionTypes.ts";
 import {generateOperators} from "./generators/generateOperatorTypes.ts";
+import {generateGlobals} from "./generators/generateGlobals.ts";
 import {generateSetImpl} from "./generators/generateSetImpl.ts";
 
 const DEBUG = false;
@@ -33,6 +35,7 @@ export type GeneratorParams = {
   casts: Casts;
   scalars: ScalarTypes;
   functions: FunctionTypes;
+  globals: Globals;
   operators: OperatorTypes;
 };
 
@@ -66,13 +69,15 @@ export async function generateQB(params: {
     // tslint:disable-next-line
     console.log(`Introspecting database schema...`);
 
-    const [types, scalars, casts, functions, operators] = await Promise.all([
-      introspect.getTypes(cxn, {debug: DEBUG}),
-      getScalars(cxn),
-      getCasts(cxn, {debug: DEBUG}),
-      getFunctions(cxn),
-      getOperators(cxn),
-    ]);
+    const [types, scalars, casts, functions, operators, globals] =
+      await Promise.all([
+        introspect.getTypes(cxn, {debug: DEBUG}),
+        getScalars(cxn),
+        getCasts(cxn, {debug: DEBUG}),
+        getFunctions(cxn),
+        getOperators(cxn),
+        getGlobals(cxn),
+      ]);
 
     const typesByName: Record<string, introspect.Type> = {};
     for (const type of types.values()) {
@@ -89,6 +94,7 @@ export async function generateQB(params: {
       casts,
       scalars,
       functions,
+      globals,
       operators,
     };
     generateRuntimeSpec(generatorParams);
@@ -98,6 +104,7 @@ export async function generateQB(params: {
     generateFunctionTypes(generatorParams);
     generateOperators(generatorParams);
     generateSetImpl(generatorParams);
+    generateGlobals(generatorParams);
 
     // generate module imports
 
