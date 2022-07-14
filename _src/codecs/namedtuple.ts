@@ -21,6 +21,12 @@ import {Buffer} from "../globals.deno.ts";
 import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces.ts";
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {EmptyTupleCodec} from "./tuple.ts";
+import {
+  InvalidArgumentError,
+  MissingArgumentError,
+  UnknownArgumentError,
+  ProtocolError,
+} from "../errors/index.ts";
 
 export class NamedTupleCodec extends Codec implements ICodec, IArgsCodec {
   private subCodecs: ICodec[];
@@ -35,12 +41,16 @@ export class NamedTupleCodec extends Codec implements ICodec, IArgsCodec {
   }
 
   encode(_buf: WriteBuffer, _object: any): void {
-    throw new Error("Named tuples cannot be passed in query arguments");
+    throw new InvalidArgumentError(
+      "Named tuples cannot be passed in query arguments"
+    );
   }
 
   encodeArgs(args: any): Buffer {
     if (args == null) {
-      throw new Error("One or more named arguments expected, received null");
+      throw new MissingArgumentError(
+        "One or more named arguments expected, received null"
+      );
     }
 
     const keys = Object.keys(args);
@@ -51,7 +61,7 @@ export class NamedTupleCodec extends Codec implements ICodec, IArgsCodec {
 
     if (keys.length > codecsLen) {
       const extraKeys = keys.filter(key => !namesSet.has(key));
-      throw new Error(
+      throw new UnknownArgumentError(
         `Unused named argument${
           extraKeys.length === 1 ? "" : "s"
         }: "${extraKeys.join('", "')}"`
@@ -88,7 +98,7 @@ export class NamedTupleCodec extends Codec implements ICodec, IArgsCodec {
     const els = buf.readUInt32();
     const subCodecs = this.subCodecs;
     if (els !== subCodecs.length) {
-      throw new Error(
+      throw new ProtocolError(
         `cannot decode NamedTuple: expected ` +
           `${subCodecs.length} elements, got ${els}`
       );

@@ -23,6 +23,7 @@ import {Address} from "./conUtils.ts";
 import {PROTO_VER, BaseRawConnection} from "./baseConn.ts";
 import Event from "./primitives/event.ts";
 import * as chars from "./primitives/chars.ts";
+import {InternalClientError, ProtocolError} from "./errors/index.ts";
 
 // @ts-ignore
 if (typeof fetch === "undefined") {
@@ -34,27 +35,24 @@ if (typeof fetch === "undefined") {
 interface FetchConfig {
   address: Address | string;
   database: string;
+  user?: string;
+  token?: string;
 }
 
-const PROTO_MIME = (
-  `application/x.edgedb.v_${PROTO_VER[0]}_${PROTO_VER[1]}.binary'`
-)
+const PROTO_MIME = `application/x.edgedb.v_${PROTO_VER[0]}_${PROTO_VER[1]}.binary'`;
 
 class BaseFetchConnection extends BaseRawConnection {
   protected config: FetchConfig;
   protected addr: string;
 
-  constructor(
-    config: FetchConfig,
-    registry: CodecsRegistry
-  ) {
+  constructor(config: FetchConfig, registry: CodecsRegistry) {
     super(registry);
     this.config = config;
     this.addr = this._buildAddr();
   }
 
   protected _buildAddr(): string {
-    this.throwNotImplemented('_buildAddr');
+    this.throwNotImplemented("_buildAddr");
   }
 
   protected async _waitForMessage(): Promise<void> {
@@ -63,7 +61,7 @@ class BaseFetchConnection extends BaseRawConnection {
     }
 
     if (this.messageWaiter == null || this.messageWaiter.done) {
-      throw new Error(
+      throw new InternalClientError(
         `message waiter was not initialized before waiting for response`
       );
     }
@@ -74,13 +72,14 @@ class BaseFetchConnection extends BaseRawConnection {
   protected async __sendData(data: Buffer): Promise<void> {
     if (this.buffer.takeMessage()) {
       const mtype = this.buffer.getMessageType();
-      throw new Error(
+      throw new InternalClientError(
         `sending request before reading all data of the previous one: ` +
-        `${chars.chr(mtype)}`);
+          `${chars.chr(mtype)}`
+      );
     }
 
     if (this.messageWaiter != null && !this.messageWaiter.done) {
-      throw new Error(
+      throw new InternalClientError(
         `sending request before waiting for completion of the previous one`
       );
     }
@@ -88,14 +87,24 @@ class BaseFetchConnection extends BaseRawConnection {
     this.messageWaiter = new Event();
 
     try {
+      const headers: {[index: string]: string} = {"Content-Type": PROTO_MIME};
+
+      if (this.config.user !== undefined) {
+        headers["X-EdgeDB-User"] = this.config.user;
+      }
+
+      if (this.config.token !== undefined) {
+        headers.Authorization = `Bearer ${this.config.token}`;
+      }
+
       const resp: any = await fetch(this.addr, {
         method: "post",
         body: data,
-        headers: {"Content-Type": PROTO_MIME},
+        headers,
       });
 
       if (!resp.ok) {
-        throw new Error(
+        throw new ProtocolError(
           `fetch failed with status code ${resp.status}: ${resp.statusText}`
         );
       }
@@ -112,11 +121,11 @@ class BaseFetchConnection extends BaseRawConnection {
 
       if (pause) {
         // unreachable
-        throw new Error('too much data received');
+        throw new ProtocolError("too much data received");
       }
 
       if (!this.buffer.takeMessage()) {
-        throw new Error('no binary protocol messages in the response');
+        throw new ProtocolError("no binary protocol messages in the response");
       }
 
       this.messageWaiter.set();
@@ -135,19 +144,19 @@ class BaseFetchConnection extends BaseRawConnection {
   ): BaseFetchConnection {
     const conn = new this(config, registry);
     conn.connected = true;
-    conn.alwaysUseOptimisticFlow = true;
     conn.exposeErrorAttributes = true;
     return conn;
   }
 }
 
-export class AdminFetchConnection extends BaseFetchConnection {
+export class AdminUIFetchConnection extends BaseFetchConnection {
   protected _buildAddr(): string {
     const config = this.config;
 
     return `${
-      typeof config.address === "string" ?
-        config.address : `http://${config.address[0]}:${config.address[1]}`
-    }/db/${config.database}/admin_binary_http`;
+      typeof config.address === "string"
+        ? config.address
+        : `http://${config.address[0]}:${config.address[1]}`
+    }/db/${config.database}`;
   }
 }

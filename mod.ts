@@ -25,7 +25,12 @@ export {RawConnection as _RawConnection} from "./_src/rawConn.ts";
 export type {Executor} from "./_src/ifaces.ts";
 export type {Client, ConnectOptions} from "./_src/client.ts";
 
-export {IsolationLevel, RetryCondition, RetryOptions} from "./_src/options.ts";
+export {
+  IsolationLevel,
+  RetryCondition,
+  RetryOptions,
+  Session,
+} from "./_src/options.ts";
 export {defaultBackoff} from "./_src/options.ts";
 export type {BackoffFunction} from "./_src/options.ts";
 

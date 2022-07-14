@@ -24,9 +24,10 @@ export {
   LocalTime,
   Duration,
   RelativeDuration,
+  DateDuration,
 } from "./datatypes/datetime.ts";
-
 export {ConfigMemory} from "./datatypes/memory.ts";
+export {Range} from "./datatypes/range.ts";
 
 export type {Executor} from "./ifaces.ts";
 

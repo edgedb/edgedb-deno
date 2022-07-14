@@ -40,21 +40,23 @@ import {
   LocalTimeCodec,
   DurationCodec,
   RelativeDurationCodec,
+  DateDurationCodec,
 } from "./datetime.ts";
 import {ConfigMemoryCodec} from "./memory.ts";
+import {InternalClientError} from "../errors/index.ts";
 
-import {KNOWN_TYPENAMES, NULL_CODEC_ID} from "./consts.ts";
+import {INVALID_CODEC_ID, KNOWN_TYPENAMES, NULL_CODEC_ID} from "./consts.ts";
 
 ///////////////////////////////////////////////////////////////////////////////
 
 export class NullCodec extends Codec implements ICodec {
   static BUFFER: Buffer = new WriteBuffer().writeInt32(0).unwrap();
   encode(_buf: WriteBuffer, _object: any): void {
-    throw new Error("null codec cannot used to encode data");
+    throw new InternalClientError("null codec cannot used to encode data");
   }
 
   decode(_buf: ReadBuffer): any {
-    throw new Error("null codec cannot used to decode data");
+    throw new InternalClientError("null codec cannot used to decode data");
   }
 
   getSubcodecs(): ICodec[] {
@@ -72,6 +74,8 @@ export const SCALAR_CODECS = new Map<uuid, ICodec>();
 
 export const NULL_CODEC = new NullCodec(NULL_CODEC_ID);
 
+export const INVALID_CODEC = new NullCodec(INVALID_CODEC_ID);
+
 ///////////////////////////////////////////////////////////////////////////////
 
 function registerScalarCodec(
@@ -80,7 +84,7 @@ function registerScalarCodec(
 ): void {
   const id = KNOWN_TYPENAMES.get(typename);
   if (id == null) {
-    throw new Error("unknown type name");
+    throw new InternalClientError("unknown type name");
   }
 
   SCALAR_CODECS.set(id, new type(id));
@@ -109,5 +113,6 @@ registerScalarCodec("cal::local_datetime", LocalDateTimeCodec);
 registerScalarCodec("std::datetime", DateTimeCodec);
 registerScalarCodec("std::duration", DurationCodec);
 registerScalarCodec("cal::relative_duration", RelativeDurationCodec);
+registerScalarCodec("cal::date_duration", DateDurationCodec);
 
 registerScalarCodec("cfg::memory", ConfigMemoryCodec);

@@ -20,11 +20,12 @@ import {Buffer} from "../globals.deno.ts";
 
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ICodec, ScalarCodec} from "./ifaces.ts";
+import {InvalidArgumentError, ProtocolError} from "../errors/index.ts";
 
 export class JSONCodec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
     if (typeof object !== "string") {
-      throw new Error(`a string was expected, got "${object}"`);
+      throw new InvalidArgumentError(`a string was expected, got "${object}"`);
     }
 
     const val = <string>object;
@@ -37,7 +38,7 @@ export class JSONCodec extends ScalarCodec implements ICodec {
   decode(buf: ReadBuffer): any {
     const format = buf.readUInt8();
     if (format !== 1) {
-      throw new Error(`unexpected JSON format ${format}`);
+      throw new ProtocolError(`unexpected JSON format ${format}`);
     }
     return buf.consumeAsString();
   }

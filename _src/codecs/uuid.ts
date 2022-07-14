@@ -20,6 +20,7 @@ import {Buffer} from "../globals.deno.ts";
 
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ICodec, ScalarCodec} from "./ifaces.ts";
+import {InvalidArgumentError} from "../errors/index.ts";
 
 function UUIDBufferFromString(uuid: string): Buffer {
   let uuidClean = uuid;
@@ -44,7 +45,9 @@ export class UUIDCodec extends ScalarCodec implements ICodec {
       buf.writeInt32(16);
       buf.writeBuffer(ubuf);
     } else {
-      throw new Error(`cannot encode UUID "${object}": invalid type`);
+      throw new InvalidArgumentError(
+        `cannot encode UUID "${object}": invalid type`
+      );
     }
   }
 

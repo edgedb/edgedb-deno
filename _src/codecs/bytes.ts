@@ -20,11 +20,12 @@ import {Buffer} from "../globals.deno.ts";
 
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ICodec, ScalarCodec} from "./ifaces.ts";
+import {InvalidArgumentError} from "../errors/index.ts";
 
 export class BytesCodec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
     if (!(object instanceof Buffer)) {
-      throw new Error(`a Buffer was expected, got "${object}"`);
+      throw new InvalidArgumentError(`a Buffer was expected, got "${object}"`);
     }
 
     buf.writeInt32(object.length);

@@ -18,6 +18,7 @@
 
 import {Buffer} from "./globals.deno.ts";
 
+import * as chars from "./primitives/chars.ts";
 import {
   Duration,
   LocalDate,
@@ -28,6 +29,20 @@ import {
 import {ConfigMemory} from "./datatypes/memory.ts";
 
 export type ProtocolVersion = [number, number];
+
+export enum OutputFormat {
+  BINARY = chars.$b,
+  JSON = chars.$j,
+  NONE = chars.$n,
+}
+
+export enum Cardinality {
+  NO_RESULT = chars.$n,
+  AT_MOST_ONE = chars.$o,
+  ONE = chars.$A,
+  MANY = chars.$m,
+  AT_LEAST_ONE = chars.$M,
+}
 
 type QueryArgPrimitive =
   | number
@@ -48,7 +63,7 @@ type QueryArg = QueryArgPrimitive | QueryArgPrimitive[] | null;
 export type QueryArgs = {[_: string]: QueryArg} | QueryArg[] | null;
 
 export interface Executor {
-  execute(query: string): Promise<void>;
+  execute(query: string, args?: QueryArgs): Promise<void>;
   query<T = unknown>(query: string, args?: QueryArgs): Promise<T[]>;
   queryJSON(query: string, args?: QueryArgs): Promise<string>;
   querySingle<T = unknown>(query: string, args?: QueryArgs): Promise<T | null>;
@@ -69,7 +84,7 @@ export type ServerSettings = KnownServerSettings & {
   [key: string]: Buffer;
 };
 
-export const HeaderCodes = {
+export const LegacyHeaderCodes = {
   implicitLimit: 0xff01,
   implicitTypenames: 0xff02,
   implicitTypeids: 0xff03,
@@ -78,17 +93,9 @@ export const HeaderCodes = {
   explicitObjectids: 0xff05,
 };
 
-export type MessageHeaders = {
-  [key in keyof typeof HeaderCodes]?: string | Buffer;
-};
-
-export interface PrepareMessageHeaders {
-  implicitLimit?: string;
-  implicitTypenames?: "true";
-  implicitTypeids?: "true";
-  explicitObjectids?: "false";
-}
-
-export interface ParseOptions {
-  headers?: PrepareMessageHeaders;
+export interface QueryOptions {
+  implicitLimit?: bigint;
+  injectTypenames?: boolean;
+  injectTypeids?: boolean;
+  injectObjectids?: boolean;
 }

@@ -22,7 +22,7 @@ import char, * as chars from "./chars.ts";
 import {RingBuffer} from "./ring.ts";
 import * as bi from "./bigint.ts";
 import * as compat from "../compat.ts";
-import {MessageHeaders, HeaderCodes} from "../ifaces.ts";
+import {LegacyHeaderCodes} from "../ifaces.ts";
 
 /* WriteBuffer over-allocation */
 const BUFFER_INC_SIZE: number = 4096;
@@ -122,6 +122,13 @@ export class WriteBuffer {
     return this;
   }
 
+  writeUInt8(i: number): this {
+    this.ensureAlloced(1);
+    this.buffer.writeUInt8(i, this.pos);
+    this.pos += 1;
+    return this;
+  }
+
   writeUInt16(i: number): this {
     this.ensureAlloced(2);
     this.buffer.writeUInt16BE(i, this.pos);
@@ -209,7 +216,9 @@ export class WriteMessageBuffer {
     return this;
   }
 
-  writeHeaders(headers: MessageHeaders | null): this {
+  writeLegacyHeaders(
+    headers: {[key in keyof typeof LegacyHeaderCodes]?: string | Buffer} | null
+  ): this {
     if (this.messagePos < 0) {
       throw new BufferError("cannot writeHeaders: no current message");
     }
@@ -220,10 +229,10 @@ export class WriteMessageBuffer {
 
     const entries = Object.entries(headers).filter(
       ([_, value]) => value !== undefined
-    ) as Array<[keyof typeof HeaderCodes, string | Buffer]>;
+    ) as Array<[keyof typeof LegacyHeaderCodes, string | Buffer]>;
     this.buffer.writeUInt16(entries.length);
     for (const [code, value] of entries) {
-      this.buffer.writeUInt16(HeaderCodes[code]);
+      this.buffer.writeUInt16(LegacyHeaderCodes[code]);
       if (Buffer.isBuffer(value)) {
         this.buffer.writeUInt32(value.byteLength);
         this.buffer.writeBuffer(value);
@@ -294,6 +303,23 @@ export class WriteMessageBuffer {
     return this;
   }
 
+  writeBigInt64(i: bi.BigIntLike): this {
+    if (this.messagePos < 0) {
+      throw new BufferError("cannot writeChar: no current message");
+    }
+    this.buffer.writeBigInt64(i);
+    return this;
+  }
+
+  writeFlags(h: number, l: number): this {
+    if (this.messagePos < 0) {
+      throw new BufferError("cannot writeChar: no current message");
+    }
+    this.buffer.writeUInt32(h);
+    this.buffer.writeUInt32(l);
+    return this;
+  }
+
   writeBuffer(buf: Buffer): this {
     if (this.messagePos < 0) {
       throw new BufferError("cannot writeBuffer: no current message");
@@ -352,7 +378,7 @@ export class ReadMessageBuffer {
 
   private curMessageType: char;
   private curMessageLen: number;
-  private curMessageLenUnread: number;
+  curMessageLenUnread: number;
   private curMessageReady: boolean;
 
   constructor() {
@@ -392,7 +418,7 @@ export class ReadMessageBuffer {
     this.len += buf.length;
     const isFull = this.bufs.full;
     if (isFull && this.curMessageType !== 0) {
-      throw new Error("query result is too big: buffer overflow");
+      throw new BufferError("query result is too big: buffer overflow");
     }
     return isFull;
   }
@@ -481,11 +507,11 @@ export class ReadMessageBuffer {
   }
 
   private _readBuffer(size: number): Buffer {
-    const buf0 = this.ensureFirstBuf();
-
     if (size === 0) {
       return EMPTY_BUFFER;
     }
+
+    const buf0 = this.ensureFirstBuf();
 
     if (this.pos0 + size <= this.len0) {
       // If the requested *size* fits in the first buffer
@@ -587,6 +613,23 @@ export class ReadMessageBuffer {
     const buf = this._readBuffer(4);
     this.curMessageLenUnread -= 4;
     return buf.readUInt32BE(0);
+  }
+
+  readBigInt64(): bigint {
+    this.checkOverread(8);
+    const buf0 = this.ensureFirstBuf();
+
+    if (this.pos0 + 8 <= this.len0) {
+      const ret = buf0.readBigInt64BE(this.pos0);
+      this.pos0 += 8;
+      this.curMessageLenUnread -= 8;
+      this.len -= 8;
+      return ret;
+    }
+
+    const buf = this._readBuffer(8);
+    this.curMessageLenUnread -= 8;
+    return buf.readBigInt64BE(0);
   }
 
   readString(): string {
@@ -845,7 +888,7 @@ export class ReadBuffer {
     const blo = bi.make(lo >>> 0);
     const num = bi.add(bi.mul(bhi, bi.make(0x100000000)), blo);
 
-    throw new Error(
+    throw new BufferError(
       `integer overflow: cannot unpack <std::int64>'${num.toString()}' ` +
         `into JavaScript Number type without losing precision`
     );
