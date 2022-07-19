@@ -1,6 +1,12 @@
-import {process} from "../globals.deno.ts";
-
-import {fs, path, exists, readFileUtf8} from "../adapter.deno.ts";
+import {
+  fs,
+  path,
+  exists,
+  readFileUtf8,
+  exit,
+  srcDir,
+  readDir,
+} from "../adapter.deno.ts";
 
 import {DirBuilder, dts, r, t} from "./builders.ts";
 import {createClient, Client, _edgedbJsVersion} from "../../mod.ts";
@@ -12,7 +18,7 @@ import {getScalars, ScalarTypes} from "./queries/getScalars.ts";
 import {FunctionTypes, getFunctions} from "./queries/getFunctions.ts";
 import {getOperators, OperatorTypes} from "./queries/getOperators.ts";
 import {getGlobals, Globals} from "./queries/getGlobals.ts";
-import * as introspect from "./queries/getTypes.ts";
+import {getTypes, Types, Type} from "./queries/getTypes.ts";
 import * as genutil from "./util/genutil.ts";
 
 import {generateCastMaps} from "./generators/generateCastMaps.ts";
@@ -30,8 +36,8 @@ export const configFileHeader = `// EdgeDB query builder. To update, run \`npx e
 
 export type GeneratorParams = {
   dir: DirBuilder;
-  types: introspect.Types;
-  typesByName: Record<string, introspect.Type>;
+  types: Types;
+  typesByName: Record<string, Type>;
   casts: Casts;
   scalars: ScalarTypes;
   functions: FunctionTypes;
@@ -42,10 +48,15 @@ export type GeneratorParams = {
 export function exitWithError(message: string): never {
   // tslint:disable-next-line
   console.error(message);
-  process.exit(1);
+  exit(1);
+  throw new Error();
 }
 
 export type Target = "ts" | "esm" | "cjs" | "mts";
+export type Version = {
+  major: number;
+  minor: number;
+};
 export async function generateQB(params: {
   outputDir: string;
   connectionConfig: ConnectConfig;
@@ -69,18 +80,20 @@ export async function generateQB(params: {
   try {
     // tslint:disable-next-line
     console.log(`Introspecting database schema...`);
-
+    const version = await cxn.queryRequiredSingle<Version>(
+      `select sys::get_version();`
+    );
     const [types, scalars, casts, functions, operators, globals] =
       await Promise.all([
-        introspect.getTypes(cxn, {debug: DEBUG}),
-        getScalars(cxn),
-        getCasts(cxn, {debug: DEBUG}),
-        getFunctions(cxn),
-        getOperators(cxn),
-        getGlobals(cxn),
+        getTypes(cxn, {debug: DEBUG, version}),
+        getScalars(cxn, {version}),
+        getCasts(cxn, {debug: DEBUG, version}),
+        getFunctions(cxn, {version}),
+        getOperators(cxn, {version}),
+        getGlobals(cxn, {version}),
       ]);
 
-    const typesByName: Record<string, introspect.Type> = {};
+    const typesByName: Record<string, Type> = {};
     for (const type of types.values()) {
       typesByName[type.name] = type;
 
@@ -314,14 +327,13 @@ export async function generateQB(params: {
     });
   }
 
-  // write syntax files
-  const syntaxDir = path.join(__dirname, "..", "syntax");
+  const syntaxDir = path.join(srcDir(), "syntax");
   const syntaxOutDir = path.join(outputDir, "syntax");
   if (!(await exists(syntaxOutDir))) {
     await fs.mkdir(syntaxOutDir);
   }
 
-  const syntaxFiles = await fs.readdir(syntaxDir);
+  const syntaxFiles = await readDir(syntaxDir);
   for (const fileName of syntaxFiles) {
     const filetype = fileName.endsWith(".js")
       ? "js"
