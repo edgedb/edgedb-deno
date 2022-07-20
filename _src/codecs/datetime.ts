@@ -25,9 +25,9 @@ import {
   LocalTime,
   Duration,
   RelativeDuration,
+  DateDuration,
   LocalDateFromOrdinal,
   LocalDateToOrdinal,
-  DateDuration,
 } from "../datatypes/datetime.ts";
 import {ymd2ord} from "../datatypes/dateutil.ts";
 import {InvalidArgumentError, ProtocolError} from "../errors/index.ts";

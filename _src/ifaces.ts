@@ -20,11 +20,12 @@ import {Buffer} from "./globals.deno.ts";
 
 import * as chars from "./primitives/chars.ts";
 import {
-  Duration,
   LocalDate,
   LocalDateTime,
   LocalTime,
+  Duration,
   RelativeDuration,
+  DateDuration,
 } from "./datatypes/datetime.ts";
 import {ConfigMemory} from "./datatypes/memory.ts";
 
@@ -43,11 +44,25 @@ export enum Cardinality {
   MANY = chars.$m,
   AT_LEAST_ONE = chars.$M,
 }
+type SerializablePrimitives =
+  | string
+  | number
+  | boolean
+  | null
+  | {toJSON(): any}
+  | undefined
+  | ((...args: any[]) => any)
+  | symbol;
+type Serializable =
+  | SerializablePrimitives
+  | {[key: string | number | symbol]: Serializable}
+  | Serializable[];
 
 type QueryArgPrimitive =
   | number
   | string
   | boolean
+  | Serializable
   | BigInt
   | Buffer
   | Date
@@ -56,6 +71,7 @@ type QueryArgPrimitive =
   | LocalTime
   | Duration
   | RelativeDuration
+  | DateDuration
   | ConfigMemory;
 
 type QueryArg = QueryArgPrimitive | QueryArgPrimitive[] | null;
