@@ -1,3 +1,5 @@
+import {Buffer} from "../globals.deno.ts";
+
 import {fs, path, exists, readFileUtf8} from "../adapter.deno.ts";
 import {StrictMap} from "./strictMap.ts";
 import * as genutil from "./util/genutil.ts";
@@ -726,9 +728,19 @@ export class DirBuilder {
     }
 
     const mod = this.getPath(`modules/${this._modules.get(moduleName)}`);
+    const edgedb = "edgedb";
 
-    mod.addImport({$: true}, "edgedb");
+    mod.addImport({$: true}, edgedb);
     mod.addImportStar("_", "../imports", {allowFileExt: true});
+
+    // @ts-ignore
+    const isDeno = typeof Deno !== "undefined";
+    if (moduleName === "std" && isDeno) {
+      mod.addImport(
+        {Buffer: true},
+        "https://deno.land/std@0.114.0/node/buffer.ts"
+      );
+    }
 
     return mod;
   }
