@@ -1,5 +1,5 @@
 import type {GeneratorParams} from "../generate.ts";
-import {frag, getRef, quote, splitName} from "../util/genutil.ts";
+import {frag, getRef, quote, splitName} from "../genutil.ts";
 import {
   all,
   CodeBuffer,
@@ -9,12 +9,11 @@ import {
   dts,
   r,
   t,
-  ts,
+  ts
 } from "../builders.ts";
 
-import {Param, Typemod} from "../queries/getFunctions.ts";
 import {getStringRepresentation} from "./generateObjectTypes.ts";
-import {introspect, StrictMap} from "../index.ts";
+import type {$} from "../genutil.ts";
 import {
   getTypesSpecificity,
   sortFuncopOverloads,
@@ -23,15 +22,14 @@ import {
   GroupedParams,
   findPathOfAnytype,
   AnytypeDef,
-  FuncopDefOverload,
-} from "../util/functionUtils.ts";
-import {Casts} from "../queries/getCasts.ts";
+  FuncopDefOverload
+} from "../funcoputil.ts";
 
 export const generateFunctionTypes = ({
   dir,
   functions,
   types,
-  casts,
+  casts
 }: GeneratorParams) => {
   generateFuncopTypes(
     dir,
@@ -60,7 +58,7 @@ export const generateFunctionTypes = ({
 };
 
 export function allowsLiterals(
-  type: introspect.Type,
+  type: $.introspect.Type,
   anytypes: AnytypeDef | null
 ): boolean {
   return (
@@ -75,16 +73,16 @@ export interface FuncopDef {
   kind?: string;
   description?: string;
   return_type: {id: string; name: string};
-  return_typemod: Typemod;
-  params: Param[];
+  return_typemod: $.introspect.Typemod;
+  params: $.introspect.Param[];
   preserves_optionality?: boolean;
 }
 
 export function generateFuncopTypes<F extends FuncopDef>(
   dir: DirBuilder,
-  types: introspect.Types,
-  casts: Casts,
-  funcops: StrictMap<string, F[]>,
+  types: $.introspect.Types,
+  casts: $.introspect.Casts,
+  funcops: $.StrictMap<string, F[]>,
   funcopExprKind: string,
   typeDefSuffix: string,
   optionalUndefined: boolean,
@@ -152,12 +150,12 @@ export function generateFuncopTypes<F extends FuncopDef>(
           overloadsBuf.writeln([
             t`/**
  * ${funcDef.description.replace(/\*\//g, "")}
- */`,
+ */`
           ]);
         }
 
         const functionTypeName = frag`${getRef(funcName, {
-          prefix: "",
+          prefix: ""
         })}λ${typeDefSuffix}${
           overloadDefIndex++ > 1 ? String(overloadDefIndex - 1) : ""
         }`;
@@ -166,7 +164,7 @@ export function generateFuncopTypes<F extends FuncopDef>(
           hasParams
             ? `<${[
                 ...(hasNamedParams ? ["NamedArgs"] : []),
-                ...params.positional.map(param => param.typeName),
+                ...params.positional.map(param => param.typeName)
               ].join(", ")}>`
             : ""
         };`;
@@ -175,14 +173,14 @@ export function generateFuncopTypes<F extends FuncopDef>(
           dts`declare `,
           t`type ${functionTypeName}${
             hasParams ? `<` : ` = $.$expr_${funcopExprKind}<`
-          }`,
+          }`
         ]);
 
         overloadsBuf.writeln([
           dts`declare `,
           t`function ${getRef(funcName, {prefix: ""})}${
             hasParams ? "<" : frag`(): ${functionTypeSig}`
-          }`,
+          }`
         ]);
 
         const anytypes = funcDef.anytypes;
@@ -190,7 +188,7 @@ export function generateFuncopTypes<F extends FuncopDef>(
 
         function getParamAnytype(
           paramTypeName: string,
-          paramType: introspect.Type,
+          paramType: $.introspect.Type,
           optional: boolean
         ) {
           if (!anytypes) return undefined;
@@ -244,7 +242,7 @@ export function generateFuncopTypes<F extends FuncopDef>(
                       const paramType = getStringRepresentation(param.type, {
                         types,
                         anytype,
-                        casts: casts.implicitCastFromMap,
+                        casts: casts.implicitCastFromMap
                       });
                       let typeStr = frag`$.TypeSet<${paramType.staticType}>`;
                       if (allowsLiterals(param.type, anytypes)) {
@@ -278,7 +276,7 @@ export function generateFuncopTypes<F extends FuncopDef>(
                 const paramTypeStr = getStringRepresentation(param.type, {
                   types,
                   anytype,
-                  casts: casts.implicitCastFromMap,
+                  casts: casts.implicitCastFromMap
                 });
 
                 let type = frag`$.TypeSet<${paramTypeStr.staticType}>`;
@@ -325,7 +323,7 @@ export function generateFuncopTypes<F extends FuncopDef>(
                     : ""
                 }: ${param.typeName}${
                   param.kind === "VariadicParam" ? "" : ","
-                }`,
+                }`
               ]);
             }
           });
@@ -353,7 +351,7 @@ export function generateFuncopTypes<F extends FuncopDef>(
             types.get(funcDef.return_type.id),
             {
               types,
-              anytype: returnAnytype,
+              anytype: returnAnytype
             }
           );
 
@@ -405,14 +403,14 @@ export function generateFuncopTypes<F extends FuncopDef>(
     code.writeln([
       r`function ${getRef(funcName, {prefix: ""})}(...args`,
       ts`: any[]`,
-      r`) {`,
+      r`) {`
     ]);
 
     code.indented(() => {
       code.writeln([
         r`const {${
           funcDefs[0].kind ? "kind, " : ""
-        }returnType, cardinality, args: positionalArgs, namedArgs} = _.syntax.$resolveOverload('${funcName}', args, _.spec, [`,
+        }returnType, cardinality, args: positionalArgs, namedArgs} = _.syntax.$resolveOverload('${funcName}', args, _.spec, [`
       ]);
       code.indented(() => {
         let overloadIndex = 0;
@@ -492,7 +490,7 @@ export function generateFuncopDef(funcopDef: FuncopDefOverload<FuncopDef>) {
 export function generateReturnCardinality(
   name: string,
   params: GroupedParams,
-  returnTypemod: Typemod,
+  returnTypemod: $.introspect.Typemod,
   hasNamedParams: boolean,
   anytypes: AnytypeDef | null,
   preservesOptionality: boolean = false
@@ -511,47 +509,47 @@ export function generateReturnCardinality(
   const cardinalities = [
     ...params.positional.map(p => ({
       ...p,
-      genTypeName: p.typeName,
+      genTypeName: p.typeName
     })),
     ...(hasNamedParams
       ? params.named.map(p => ({
           ...p,
-          genTypeName: `NamedArgs[${quote(p.name)}]`,
+          genTypeName: `NamedArgs[${quote(p.name)}]`
         }))
-      : []),
+      : [])
   ];
 
   if (name === "std::union") {
-    return `$.cardinalityUtil.mergeCardinalities<
-        $.cardinalityUtil.paramCardinality<${cardinalities[0].genTypeName}>,
-        $.cardinalityUtil.paramCardinality<${cardinalities[1].genTypeName}>
+    return `$.cardutil.mergeCardinalities<
+        $.cardutil.paramCardinality<${cardinalities[0].genTypeName}>,
+        $.cardutil.paramCardinality<${cardinalities[1].genTypeName}>
       >`;
   }
 
   if (name === "std::coalesce") {
-    return `$.cardinalityUtil.orCardinalities<
-        $.cardinalityUtil.paramCardinality<${cardinalities[0].genTypeName}>,
-        $.cardinalityUtil.paramCardinality<${cardinalities[1].genTypeName}>
+    return `$.cardutil.orCardinalities<
+        $.cardutil.paramCardinality<${cardinalities[0].genTypeName}>,
+        $.cardutil.paramCardinality<${cardinalities[1].genTypeName}>
       >`;
   }
 
   if (name === "std::distinct") {
-    return `$.cardinalityUtil.paramCardinality<${cardinalities[0].genTypeName}>`;
+    return `$.cardutil.paramCardinality<${cardinalities[0].genTypeName}>`;
   }
 
   if (name === "std::if_else") {
     return (
-      `$.cardinalityUtil.multiplyCardinalities<` +
-      `$.cardinalityUtil.orCardinalities<` +
-      `$.cardinalityUtil.paramCardinality<${cardinalities[0].genTypeName}>,` +
-      ` $.cardinalityUtil.paramCardinality<${cardinalities[2].genTypeName}>` +
-      `>, $.cardinalityUtil.paramCardinality<${cardinalities[1].genTypeName}>>`
+      `$.cardutil.multiplyCardinalities<` +
+      `$.cardutil.orCardinalities<` +
+      `$.cardutil.paramCardinality<${cardinalities[0].genTypeName}>,` +
+      ` $.cardutil.paramCardinality<${cardinalities[2].genTypeName}>` +
+      `>, $.cardutil.paramCardinality<${cardinalities[1].genTypeName}>>`
     );
   }
   if (name === "std::assert_exists") {
     return (
-      `$.cardinalityUtil.overrideLowerBound<` +
-      `$.cardinalityUtil.paramCardinality<${cardinalities[0].genTypeName}>, "One">`
+      `$.cardutil.overrideLowerBound<` +
+      `$.cardutil.paramCardinality<${cardinalities[0].genTypeName}>, "One">`
     );
   }
 
@@ -559,8 +557,8 @@ export function generateReturnCardinality(
     if (param.typemod === "SetOfType") {
       if (preservesOptionality) {
         return (
-          `$.cardinalityUtil.overrideUpperBound<` +
-          `$.cardinalityUtil.paramCardinality<${param.genTypeName}>, "One">`
+          `$.cardutil.overrideUpperBound<` +
+          `$.cardutil.paramCardinality<${param.genTypeName}>, "One">`
         );
       } else {
         return `$.Cardinality.One`;
@@ -569,10 +567,10 @@ export function generateReturnCardinality(
 
     const prefix =
       param.typemod === "OptionalType" || param.hasDefault
-        ? "$.cardinalityUtil.optionalParamCardinality"
+        ? "$.cardutil.optionalParamCardinality"
         : param.kind === "VariadicParam"
-        ? "$.cardinalityUtil.paramArrayCardinality"
-        : "$.cardinalityUtil.paramCardinality";
+        ? "$.cardutil.paramArrayCardinality"
+        : "$.cardutil.paramCardinality";
 
     return `${prefix}<${param.genTypeName}>`;
   });
@@ -583,13 +581,13 @@ export function generateReturnCardinality(
           .slice(1)
           .reduce(
             (cards, card) =>
-              `$.cardinalityUtil.multiplyCardinalities<${cards}, ${card}>`,
+              `$.cardutil.multiplyCardinalities<${cards}, ${card}>`,
             paramCardinalities[0]
           )
       : paramCardinalities[0]
     : "$.Cardinality.One";
 
   return returnTypemod === "OptionalType" && !preservesOptionality
-    ? `$.cardinalityUtil.overrideLowerBound<${cardinality}, 'Zero'>`
+    ? `$.cardutil.overrideLowerBound<${cardinality}, 'Zero'>`
     : cardinality;
 }

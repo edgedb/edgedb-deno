@@ -1,10 +1,9 @@
-import {Buffer} from "../globals.deno.ts";
-
-import {fs, path, exists, readFileUtf8} from "../adapter.deno.ts";
-import {StrictMap} from "./strictMap.ts";
-import * as genutil from "./util/genutil.ts";
+import {adapter} from "../mod.ts";
+import {StrictMap} from "../_src/reflection/strictMap.ts";
+import * as genutil from "./genutil.ts";
 import {importExportHelpers} from "./importExportHelpers.ts";
 
+const {fs, path, exists, readFileUtf8} = adapter;
 type Mode = "ts" | "js" | "dts";
 type ModuleKind = "esm" | "cjs";
 
@@ -31,7 +30,7 @@ export const f =
     return {
       type: "frag",
       modes: new Set(modes),
-      content: genutil.frag(strings, ...exprs),
+      content: genutil.frag(strings, ...exprs)
     };
   };
 
@@ -148,7 +147,7 @@ class BuilderImportsExports {
       names,
       allowFileExt: params.allowFileExt ?? false,
       modes: params.modes ? new Set(params.modes) : allModes,
-      typeOnly: params.typeOnly ?? false,
+      typeOnly: params.typeOnly ?? false
     });
   }
 
@@ -159,7 +158,7 @@ class BuilderImportsExports {
       name,
       allowFileExt: params.allowFileExt ?? false,
       modes: params.modes ? new Set(params.modes) : allModes,
-      typeOnly: params.typeOnly ?? false,
+      typeOnly: params.typeOnly ?? false
     });
   }
 
@@ -170,7 +169,7 @@ class BuilderImportsExports {
       name,
       allowFileExt: params.allowFileExt ?? false,
       modes: params.modes ? new Set(params.modes) : allModes,
-      typeOnly: params.typeOnly ?? false,
+      typeOnly: params.typeOnly ?? false
     });
   }
 
@@ -186,7 +185,7 @@ class BuilderImportsExports {
       as: params.as,
       isDefault: false,
       modes: params.modes ? new Set(params.modes) : allModes,
-      typeOnly: params.typeOnly ?? false,
+      typeOnly: params.typeOnly ?? false
     });
   }
 
@@ -199,7 +198,7 @@ class BuilderImportsExports {
       name,
       isDefault: true,
       modes: params.modes ? new Set(params.modes) : allModes,
-      typeOnly: false,
+      typeOnly: false
     });
   }
 
@@ -208,7 +207,7 @@ class BuilderImportsExports {
       type: "refsDefault",
       ref,
       as,
-      modes: allModes,
+      modes: allModes
     });
   }
 
@@ -223,7 +222,7 @@ class BuilderImportsExports {
       fromPath,
       allowFileExt: params.allowFileExt ?? false,
       modes: params.modes ? new Set(params.modes) : allModes,
-      typeOnly: params.typeOnly ?? false,
+      typeOnly: params.typeOnly ?? false
     });
   }
 
@@ -236,7 +235,7 @@ class BuilderImportsExports {
       name: params.as || null,
       fromPath,
       allowFileExt: params.allowFileExt ?? false,
-      modes: params.modes ? new Set(params.modes) : allModes,
+      modes: params.modes ? new Set(params.modes) : allModes
     });
   }
 
@@ -244,7 +243,7 @@ class BuilderImportsExports {
     mode,
     moduleKind,
     helpers,
-    extension,
+    extension
   }: {
     mode: Mode;
     moduleKind: ModuleKind;
@@ -318,7 +317,7 @@ class BuilderImportsExports {
     refs,
     helpers,
     extension,
-    forceDefaultExport = false,
+    forceDefaultExport = false
   }: {
     mode: Mode;
     moduleKind: ModuleKind;
@@ -458,7 +457,7 @@ class BuilderImportsExports {
 
           refsDefault.push({
             ref: (exp.ref.opts?.prefix ?? "") + ref.internalName,
-            as: exp.as,
+            as: exp.as
           });
       }
     }
@@ -551,7 +550,7 @@ export class CodeBuilder {
       dir: this.dir,
       internalName: suffix
         ? genutil.getInternalName({id: suffix, fqn: name})
-        : name,
+        : name
     });
   }
 
@@ -600,7 +599,7 @@ export class CodeBuilder {
 
       importsExports.addImportStar(prefix, importPath, {
         allowFileExt: true,
-        typeOnly: true,
+        typeOnly: true
       });
     }
 
@@ -615,7 +614,7 @@ export class CodeBuilder {
     mode,
     moduleKind,
     forceDefaultExport,
-    moduleExtension,
+    moduleExtension
   }: {
     mode: Mode;
     moduleKind: ModuleKind;
@@ -660,7 +659,7 @@ export class CodeBuilder {
       refs: this.dirBuilder._refs,
       helpers,
       forceDefaultExport,
-      extension: moduleExtension,
+      extension: moduleExtension
     });
 
     body += "\n\n" + exports;
@@ -675,7 +674,7 @@ Object.defineProperty(exports, "__esModule", { value: true });\n`
       mode,
       moduleKind,
       helpers,
-      extension: moduleExtension,
+      extension: moduleExtension
     });
 
     if (helpers.size) {
@@ -721,7 +720,7 @@ export class DirBuilder {
       const internalName = genutil.makeValidIdent({
         name: moduleName,
         id: `${moduleCounter++}`,
-        skipKeywordCheck: true,
+        skipKeywordCheck: true
       });
 
       this._modules.set(moduleName, internalName);
@@ -791,7 +790,7 @@ export class DirBuilder {
         mode: params.mode,
         moduleKind: params.moduleKind,
         moduleExtension: params.moduleExtension,
-        forceDefaultExport,
+        forceDefaultExport
       });
       params.written.add(filePath);
       if (oldContents !== newContents) {

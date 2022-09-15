@@ -1,12 +1,13 @@
-import {CodeBuilder, CodeFragment, IdentRef} from "../builders.ts";
-import * as introspect from "../queries/getTypes.ts";
-import {util} from "./util.ts";
+import type {CodeBuilder, CodeFragment, IdentRef} from "./builders.ts";
+import type * as introspect from "../_src/reflection/queries/types.ts";
+import {util} from "../_src/reflection/util.ts";
+export {$} from "../mod.ts";
 
 export function splitName(name: string) {
   if (!name.includes("::")) throw new Error(`Invalid FQN ${name}`);
   return {
     mod: name.split("::")[0],
-    name: name.split("::")[1],
+    name: name.split("::")[1]
   };
 }
 
@@ -47,7 +48,7 @@ export const scalarToLiteralMapping: {
   "std::number": {
     type: "number",
     literalKind: "typeof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "std::str": {type: "string", literalKind: "typeof"},
   "std::uuid": {type: "string"},
@@ -58,43 +59,43 @@ export const scalarToLiteralMapping: {
   "std::datetime": {
     type: "Date",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "std::duration": {
     type: "edgedb.Duration",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "cal::local_datetime": {
     type: "edgedb.LocalDateTime",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "cal::local_date": {
     type: "edgedb.LocalDate",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "cal::local_time": {
     type: "edgedb.LocalTime",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "cal::relative_duration": {
     type: "edgedb.RelativeDuration",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "cal::date_duration": {
     type: "edgedb.DateDuration",
     literalKind: "instanceof",
-    extraTypes: ["string"],
+    extraTypes: ["string"]
   },
   "cfg::memory": {
     type: "edgedb.ConfigMemory",
     literalKind: "instanceof",
-    extraTypes: ["string"],
-  },
+    extraTypes: ["string"]
+  }
 };
 
 export const literalToScalarMapping: {
@@ -120,7 +121,7 @@ export function toTSScalarType(
     getEnumRef?: (type: introspect.Type) => string;
     edgedbDatatypePrefix: string;
   } = {
-    edgedbDatatypePrefix: "_.",
+    edgedbDatatypePrefix: "_."
   }
 ): CodeFragment[] {
   switch (type.kind) {
@@ -143,7 +144,7 @@ export function toTSScalarType(
       const literalType = scalarToLiteralMapping[type.name]?.type ?? "unknown";
       return [
         (literalType.startsWith("edgedb.") ? opts.edgedbDatatypePrefix : "") +
-          literalType,
+          literalType
       ];
     }
 
@@ -262,7 +263,7 @@ export function getInternalName({fqn, id}: {fqn: string; id: string}) {
 export function makeValidIdent({
   id,
   name,
-  skipKeywordCheck,
+  skipKeywordCheck
 }: {
   id: string;
   name: string;
@@ -285,8 +286,8 @@ export function getRef(name: string, opts?: {prefix?: string}): IdentRef {
     type: "identRef",
     name,
     opts: {
-      prefix: opts?.prefix ?? "$",
-    },
+      prefix: opts?.prefix ?? "$"
+    }
   };
 }
 
@@ -368,5 +369,5 @@ export const reservedIdents = new Set([
   "protected",
   "implements",
   "instanceof",
-  "Object",
+  "Object"
 ]);

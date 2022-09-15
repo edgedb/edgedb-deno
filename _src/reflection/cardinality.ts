@@ -1,5 +1,5 @@
-import {Cardinality} from "../enums.ts";
-import type {TypeSet} from "../typesystem.ts";
+import {Cardinality} from "./enums.ts";
+import type {TypeSet} from "./typesystem.ts";
 
 // Computing cardinality of path
 // From base set cadinality and pointer cardinality
@@ -10,7 +10,7 @@ import type {TypeSet} from "../typesystem.ts";
 // One          0      AtMostOne  One         Many  AtLeastOne
 // Many         0      Many       Many        Many  Many
 // AtLeastOne   0      Many       AtLeastOne  Many  AtLeastOne
-export namespace cardinalityUtil {
+export namespace cardutil {
   export type multiplyCardinalities<
     C1 extends Cardinality,
     C2 extends Cardinality
@@ -164,7 +164,7 @@ export namespace cardinalityUtil {
     if (cards.length === 2) return mergeCardinalities(first, second) as any;
     return mergeCardinalitiesVariadic([
       mergeCardinalities(first, second),
-      ...rest,
+      ...rest
     ]);
   }
 

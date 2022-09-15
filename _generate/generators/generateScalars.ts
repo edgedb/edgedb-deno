@@ -6,11 +6,11 @@ import {
   toIdent,
   quote,
   toTSScalarType,
-  scalarToLiteralMapping,
-} from "../util/genutil.ts";
+  scalarToLiteralMapping
+} from "../genutil.ts";
 import {dts, r, t, ts} from "../builders.ts";
 import type {GeneratorParams} from "../generate.ts";
-import {typeMapping} from "../queries/getTypes.ts";
+import {$} from "../genutil.ts";
 
 export const generateScalars = (params: GeneratorParams) => {
   const {dir, types, casts, scalars} = params;
@@ -51,15 +51,15 @@ export const generateScalars = (params: GeneratorParams) => {
         const children = [
           ...new Set(
             scalarType.children.map(
-              desc => (typeMapping.get(desc.id) ?? desc).name
+              desc => ($.introspect.typeMapping.get(desc.id) ?? desc).name
             )
-          ),
+          )
         ].map(descName =>
           descName === "std::anyenum" ? "$.EnumType" : getRef(descName)
         );
         sc.writeln([
           dts`declare `,
-          t`type ${ref} = ${joinFrags(children, " | ")};`,
+          t`type ${ref} = ${joinFrags(children, " | ")};`
         ]);
         sc.nl();
 
@@ -75,7 +75,7 @@ export const generateScalars = (params: GeneratorParams) => {
           t`: ${ref}`,
           r` = $.makeType`,
           ts`<${ref}>`,
-          r`(_.spec, "${type.id}", _.syntax.literal);`,
+          r`(_.spec, "${type.id}", _.syntax.literal);`
         ]);
         sc.nl();
 
@@ -98,7 +98,7 @@ export const generateScalars = (params: GeneratorParams) => {
         t`} & `,
         t`$.EnumType<${quote(type.name)}, [${type.enum_values
           .map(val => quote(val))
-          .join(", ")}]>;`,
+          .join(", ")}]>;`
       ]);
       sc.writeln([
         dts`declare `,
@@ -106,7 +106,7 @@ export const generateScalars = (params: GeneratorParams) => {
         t`: ${ref}`,
         r` = $.makeType`,
         ts`<${ref}>`,
-        r`(_.spec, "${type.id}", _.syntax.literal);`,
+        r`(_.spec, "${type.id}", _.syntax.literal);`
       ]);
 
       sc.nl();
@@ -139,7 +139,7 @@ export const generateScalars = (params: GeneratorParams) => {
       sc.writeln([
         t`export `,
         dts`declare `,
-        t`type ${ref} = $.ScalarType<"${mapped.name}", ${tsType}>;`,
+        t`type ${ref} = $.ScalarType<"${mapped.name}", ${tsType}>;`
       ]);
 
       // sc.writeln([
@@ -156,7 +156,7 @@ export const generateScalars = (params: GeneratorParams) => {
         t`: $.scalarTypeWithConstructor<${mappedRef}, ${extraTypes}>`,
         r` = $.makeType`,
         ts`<$.scalarTypeWithConstructor<${mappedRef}, ${extraTypes}>>`,
-        r`(_.spec, "${type.id}", _.syntax.literal);`,
+        r`(_.spec, "${type.id}", _.syntax.literal);`
       ]);
     } else {
       const extraTypes = (
@@ -167,7 +167,7 @@ export const generateScalars = (params: GeneratorParams) => {
       sc.writeln([
         t`export `,
         dts`declare `,
-        t`type ${ref} = $.ScalarType<"${type.name}", ${tsType}>;`,
+        t`type ${ref} = $.ScalarType<"${type.name}", ${tsType}>;`
       ]);
 
       sc.writeln([
@@ -176,7 +176,7 @@ export const generateScalars = (params: GeneratorParams) => {
         t`: $.scalarTypeWithConstructor<${ref}, ${extraTypes}>`,
         r` = $.makeType`,
         ts`<$.scalarTypeWithConstructor<${ref}, ${extraTypes}>>`,
-        r`(_.spec, "${type.id}", _.syntax.literal);`,
+        r`(_.spec, "${type.id}", _.syntax.literal);`
       ]);
     }
 
@@ -189,10 +189,10 @@ export const generateScalars = (params: GeneratorParams) => {
             ref,
             ...casts.implicitCastFromMap[type.id].map(typeId =>
               getRef(types.get(typeId).name)
-            ),
+            )
           ],
           " | "
-        )};`,
+        )};`
       ]);
     }
 
@@ -205,11 +205,11 @@ export const generateScalars = (params: GeneratorParams) => {
           assignableMap.length
             ? [
                 ref,
-                ...assignableMap.map(typeId => getRef(types.get(typeId).name)),
+                ...assignableMap.map(typeId => getRef(types.get(typeId).name))
               ]
             : [ref],
           " | "
-        )};`,
+        )};`
       ]);
     }
 

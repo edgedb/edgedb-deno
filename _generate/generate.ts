@@ -1,18 +1,9 @@
-import {fs, path, exists, readFileUtf8, exit, walk} from "../adapter.deno.ts";
-
 import {DirBuilder, dts, r, t} from "./builders.ts";
-import {createClient, Client, _edgedbJsVersion} from "../../mod.ts";
+import {createClient, Client, _edgedbJsVersion, adapter, $} from "../mod.ts";
 
-import {ConnectConfig} from "../conUtils.ts";
+import type {ConnectConfig} from "../_src/conUtils.ts";
 
-import {getCasts, Casts} from "./queries/getCasts.ts";
-import {getScalars, ScalarTypes} from "./queries/getScalars.ts";
-import {FunctionTypes, getFunctions} from "./queries/getFunctions.ts";
-import {getOperators, OperatorTypes} from "./queries/getOperators.ts";
-import {getGlobals, Globals} from "./queries/getGlobals.ts";
-import {getTypes, Types, Type} from "./queries/getTypes.ts";
-import * as genutil from "./util/genutil.ts";
-import {syntax} from "./syntax.ts";
+import * as genutil from "./genutil.ts";
 
 import {generateCastMaps} from "./generators/generateCastMaps.ts";
 import {generateScalars} from "./generators/generateScalars.ts";
@@ -23,19 +14,20 @@ import {generateOperators} from "./generators/generateOperatorTypes.ts";
 import {generateGlobals} from "./generators/generateGlobals.ts";
 import {generateSetImpl} from "./generators/generateSetImpl.ts";
 
+const {fs, path, exists, readFileUtf8, exit, walk} = adapter;
 const DEBUG = false;
 
 export const configFileHeader = `// EdgeDB query builder. To update, run \`npx edgeql-js\``;
 
 export type GeneratorParams = {
   dir: DirBuilder;
-  types: Types;
-  typesByName: Record<string, Type>;
-  casts: Casts;
-  scalars: ScalarTypes;
-  functions: FunctionTypes;
-  globals: Globals;
-  operators: OperatorTypes;
+  types: $.introspect.Types;
+  typesByName: Record<string, $.introspect.Type>;
+  casts: $.introspect.Casts;
+  scalars: $.introspect.ScalarTypes;
+  functions: $.introspect.FunctionTypes;
+  globals: $.introspect.Globals;
+  operators: $.introspect.OperatorTypes;
 };
 
 export function exitWithError(message: string): never {
@@ -63,7 +55,7 @@ export async function generateQB(params: {
   try {
     cxn = createClient({
       ...connectionConfig,
-      concurrency: 5,
+      concurrency: 5
     });
   } catch (e) {
     return exitWithError(`Failed to connect: ${(e as Error).message}`);
@@ -79,15 +71,15 @@ export async function generateQB(params: {
     );
     const [types, scalars, casts, functions, operators, globals] =
       await Promise.all([
-        getTypes(cxn, {debug: DEBUG, version}),
-        getScalars(cxn, {version}),
-        getCasts(cxn, {debug: DEBUG, version}),
-        getFunctions(cxn, {version}),
-        getOperators(cxn, {version}),
-        getGlobals(cxn, {version}),
+        $.introspect.getTypes(cxn, {debug: DEBUG, version}),
+        $.introspect.getScalars(cxn, {version}),
+        $.introspect.getCasts(cxn, {debug: DEBUG, version}),
+        $.introspect.getFunctions(cxn, {version}),
+        $.introspect.getOperators(cxn, {version}),
+        $.introspect.getGlobals(cxn, {version})
       ]);
 
-    const typesByName: Record<string, Type> = {};
+    const typesByName: Record<string, $.introspect.Type> = {};
     for (const type of types.values()) {
       typesByName[type.name] = type;
 
@@ -103,7 +95,7 @@ export async function generateQB(params: {
       scalars,
       functions,
       globals,
-      operators,
+      operators
     };
     generateRuntimeSpec(generatorParams);
     generateCastMaps(generatorParams);
@@ -121,15 +113,15 @@ export async function generateQB(params: {
 
     importsFile.addExportStar(edgedb, {as: "edgedb"});
     importsFile.addExportFrom({spec: true}, "./__spec__", {
-      allowFileExt: true,
+      allowFileExt: true
     });
     importsFile.addExportStar("./syntax/syntax", {
       allowFileExt: true,
-      as: "syntax",
+      as: "syntax"
     });
     importsFile.addExportStar("./castMaps", {
       allowFileExt: true,
-      as: "castMaps",
+      as: "castMaps"
     });
 
     /////////////////////////
@@ -139,11 +131,11 @@ export async function generateQB(params: {
     const index = dir.getPath("index");
     // index.addExportStar(null, "./castMaps", true);
     index.addExportStar("./syntax/external", {
-      allowFileExt: true,
+      allowFileExt: true
     });
     index.addExportStar("./types", {
       allowFileExt: true,
-      modes: ["ts", "dts", "js"],
+      modes: ["ts", "dts", "js"]
     });
 
     index.addImport({$: true, _edgedbJsVersion: true}, edgedb);
@@ -158,13 +150,13 @@ export async function generateQB(params: {
       \` than the one currently installed (v\${_edgedbJsVersion}).\\n\` +
       \`Run 'npx edgeql-js' to re-generate a compatible version.\\n\`
   );
-}`,
+}`
     ]);
 
     const spreadModules = [
       {
         name: "$op",
-        keys: ["op"],
+        keys: ["op"]
       },
       {
         name: "$syntax",
@@ -187,14 +179,14 @@ export async function generateQB(params: {
           "set",
           "tuple",
           "with",
-          "withParams",
-        ],
+          "withParams"
+        ]
       },
       {
         name: "_default",
-        module: dir.getModule("default"),
+        module: dir.getModule("default")
       },
-      {name: "_std", module: dir.getModule("std")},
+      {name: "_std", module: dir.getModule("std")}
     ];
     const excludedKeys = new Set<string>(dir._modules.keys());
 
@@ -225,13 +217,13 @@ export async function generateQB(params: {
     index.writeln([
       dts`declare `,
       `const ExportDefault`,
-      t`: ${spreadTypes.reverse().join(" & \n  ")} & {`,
+      t`: ${spreadTypes.reverse().join(" & \n  ")} & {`
     ]);
     index.indented(() => {
       for (const [moduleName, internalName] of dir._modules) {
         if (dir.getModule(moduleName).isEmpty()) continue;
         index.writeln([
-          t`${genutil.quote(moduleName)}: typeof _${internalName};`,
+          t`${genutil.quote(moduleName)}: typeof _${internalName};`
         ]);
       }
     });
@@ -245,7 +237,7 @@ export async function generateQB(params: {
         index.writeln([
           r`...${
             name === "$syntax" ? `$.util.omitDollarPrefixed($syntax)` : name
-          },`,
+          },`
         ]);
       }
 
@@ -275,7 +267,7 @@ export async function generateQB(params: {
       t`type Set<
   Type extends $.BaseType,
   Card extends $.Cardinality = $.Cardinality.Many
-> = $.TypeSet<Type, Card>;`,
+> = $.TypeSet<Type, Card>;`
     ]);
   } finally {
     await cxn.close();
@@ -290,7 +282,7 @@ export async function generateQB(params: {
       moduleKind: "esm",
       fileExtension: ".ts",
       moduleExtension: "",
-      written,
+      written
     });
   } else if (target === "mts") {
     await dir.write(outputDir, {
@@ -298,7 +290,7 @@ export async function generateQB(params: {
       moduleKind: "esm",
       fileExtension: ".mts",
       moduleExtension: ".mjs",
-      written,
+      written
     });
   } else if (target === "cjs") {
     await dir.write(outputDir, {
@@ -306,14 +298,14 @@ export async function generateQB(params: {
       moduleKind: "cjs",
       fileExtension: ".js",
       moduleExtension: "",
-      written,
+      written
     });
     await dir.write(outputDir, {
       mode: "dts",
       moduleKind: "esm",
       fileExtension: ".d.ts",
       moduleExtension: "",
-      written,
+      written
     });
   } else if (target === "esm") {
     await dir.write(outputDir, {
@@ -321,14 +313,14 @@ export async function generateQB(params: {
       moduleKind: "esm",
       fileExtension: ".mjs",
       moduleExtension: ".mjs",
-      written,
+      written
     });
     await dir.write(outputDir, {
       mode: "dts",
       moduleKind: "esm",
       fileExtension: ".d.ts",
       moduleExtension: "",
-      written,
+      written
     });
   } else if (target === "deno") {
     await dir.write(outputDir, {
@@ -336,7 +328,7 @@ export async function generateQB(params: {
       moduleKind: "esm",
       fileExtension: ".ts",
       moduleExtension: ".ts",
-      written,
+      written
     });
   }
 
@@ -345,7 +337,7 @@ export async function generateQB(params: {
     await fs.mkdir(syntaxOutDir);
   }
 
-  const syntaxFiles = syntax[target];
+  const syntaxFiles = $.syntax[target];
   if (!syntaxFiles) {
     throw new Error(`Error: no syntax files found for target "${target}"`);
   }

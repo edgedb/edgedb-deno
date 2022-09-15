@@ -1,7 +1,7 @@
 import {Executor} from "../../ifaces.ts";
-import type {Version} from "../generate.ts";
+import type {Version} from "./queryTypes.ts";
 import {StrictMap} from "../strictMap.ts";
-import {typeutil} from "../util/typeutil.ts";
+import type {typeutil} from "../typeutil.ts";
 
 /*
   for scalars

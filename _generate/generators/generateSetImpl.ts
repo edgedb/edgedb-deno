@@ -1,6 +1,6 @@
 import {dts, r, t, ts} from "../builders.ts";
-import {GeneratorParams} from "../generate.ts";
-import {getImplicitCastableRootTypes} from "../util/functionUtils.ts";
+import type {GeneratorParams} from "../generate.ts";
+import {getImplicitCastableRootTypes} from "../funcoputil.ts";
 import {getStringRepresentation} from "./generateObjectTypes.ts";
 
 export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
@@ -11,18 +11,18 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
 
   code.addImport(
     {
-      $: true,
+      $: true
     },
     edgedb,
     {allowFileExt: false}
   );
   code.addImportStar("castMaps", "../castMaps", {
     allowFileExt: true,
-    modes: ["ts", "js", "dts"],
+    modes: ["ts", "js", "dts"]
   });
   code.addImport({$expressionify: true}, "./path", {
     allowFileExt: true,
-    modes: ["ts", "js"],
+    modes: ["ts", "js"]
   });
 
   code.addImport(
@@ -33,7 +33,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
       getTypesFromObjectExprs: true,
       getCardsFromExprs: true,
       getSharedParentPrimitiveVariadic: true,
-      LooseTypeSet: true,
+      LooseTypeSet: true
     },
     "./set",
     {allowFileExt: true, typeOnly: true}
@@ -41,7 +41,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
 
   code.addImport({getSharedParent: true}, "./set", {
     allowFileExt: true,
-    modes: ["ts", "js"],
+    modes: ["ts", "js"]
   });
 
   code.nl();
@@ -51,8 +51,8 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
   Exprs extends [$.TypeSet, ...$.TypeSet[]]
 > = LooseTypeSet<
   getSharedParentPrimitiveVariadic<getTypesFromExprs<Exprs>>,
-  $.cardinalityUtil.mergeCardinalitiesVariadic<getCardsFromExprs<Exprs>>
->;`,
+  $.cardutil.mergeCardinalitiesVariadic<getCardsFromExprs<Exprs>>
+>;`
   ]);
   code.nl();
 
@@ -62,7 +62,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
     dts`declare `,
     t`function set<
   Expr extends castMaps.orScalarLiteral<$.TypeSet>
->(expr: Expr): $expr_Set<castMaps.literalToTypeSet<Expr>>;`,
+>(expr: Expr): $expr_Set<castMaps.literalToTypeSet<Expr>>;`
   ]);
 
   for (const implicitRootTypeId of implicitCastableRootTypes) {
@@ -72,11 +72,11 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
   Expr extends castMaps.orScalarLiteral<$.TypeSet<${
     getStringRepresentation(types.get(implicitRootTypeId), {
       types,
-      casts: casts.implicitCastFromMap,
+      casts: casts.implicitCastFromMap
     }).staticType
   }>>,
   Exprs extends [Expr, ...Expr[]]
->(...exprs: Exprs): $expr_Set<getSetTypeFromExprs<castMaps.mapLiteralToTypeSet<Exprs>>>;`,
+>(...exprs: Exprs): $expr_Set<getSetTypeFromExprs<castMaps.mapLiteralToTypeSet<Exprs>>>;`
     ]);
 
     code.writeln([
@@ -85,11 +85,11 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
   Expr extends $.TypeSet<$.ArrayType<${
     getStringRepresentation(types.get(implicitRootTypeId), {
       types,
-      casts: casts.implicitCastFromMap,
+      casts: casts.implicitCastFromMap
     }).staticType
   }>>,
   Exprs extends [Expr, ...Expr[]]
->(...exprs: Exprs): $expr_Set<getSetTypeFromExprs<Exprs>>;`,
+>(...exprs: Exprs): $expr_Set<getSetTypeFromExprs<Exprs>>;`
     ]);
   }
 
@@ -103,7 +103,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
 ): $expr_Set<
   LooseTypeSet<
     mergeObjectTypesVariadic<getTypesFromObjectExprs<Exprs>>,
-    $.cardinalityUtil.mergeCardinalitiesVariadic<getCardsFromExprs<Exprs>>
+    $.cardutil.mergeCardinalitiesVariadic<getCardsFromExprs<Exprs>>
   >
 >;
 `,
@@ -125,7 +125,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
 ): $expr_Set<
   $.TypeSet<
     $.getPrimitiveBaseType<castMaps.literalToTypeSet<Expr>["__element__"]>,
-    $.cardinalityUtil.mergeCardinalitiesVariadic<
+    $.cardutil.mergeCardinalitiesVariadic<
       getCardsFromExprs<castMaps.mapLiteralToTypeSet<[Expr, ...Exprs]>>
     >
   >
@@ -139,7 +139,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
     $.getPrimitiveBaseType<castMaps.literalToTypeSet<Expr>["__element__"]>,
     $.Cardinality.Many
   >
->;`,
+>;`
   ]);
 
   code.writeln([
@@ -168,7 +168,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
     ts` as any`,
     r`)
       .reduce(getSharedParent),
-    __cardinality__: $.cardinalityUtil.mergeCardinalitiesVariadic(
+    __cardinality__: $.cardutil.mergeCardinalitiesVariadic(
       exprs.map(expr => expr.__cardinality__)`,
     ts` as any`,
     r`
@@ -178,7 +178,7 @@ export const generateSetImpl = ({dir, types, casts}: GeneratorParams) => {
     ts` as any`,
     r`;
 
-}`,
+}`
   ]);
 
   code.addExport("set");

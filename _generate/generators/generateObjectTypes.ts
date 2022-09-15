@@ -1,7 +1,7 @@
 import {CodeBuffer, CodeFragment, dts, js, r, t, ts} from "../builders.ts";
-import {Cardinality} from "../enums.ts";
+// import {Cardinality} from "edgedb/dist/reflection";
 import type {GeneratorParams} from "../generate.ts";
-import * as introspect from "../queries/getTypes.ts";
+import {$} from "../genutil.ts";
 import {
   frag,
   getRef,
@@ -9,15 +9,15 @@ import {
   makePlainIdent,
   quote,
   splitName,
-  toTSScalarType,
-} from "../util/genutil.ts";
+  toTSScalarType
+} from "../genutil.ts";
 
 const singletonObjectTypes = new Set(["std::FreeObject"]);
 
 export const getStringRepresentation: (
-  type: introspect.Type,
+  type: $.introspect.Type,
   params: {
-    types: introspect.Types;
+    types: $.introspect.Types;
     anytype?: string | CodeFragment[];
     casts?: {[key: string]: string[]};
     castSuffix?: string;
@@ -30,25 +30,25 @@ export const getStringRepresentation: (
   if (type.name === "anytype") {
     return {
       staticType: frag`${params.anytype ?? `$.BaseType`}`,
-      runtimeType: [],
+      runtimeType: []
     };
   }
   if (type.name === "anytuple") {
     return {
       staticType: [`$.AnyTupleType`],
-      runtimeType: [],
+      runtimeType: []
     };
   }
   if (type.name === "std::anypoint") {
     return {
       staticType: frag`${params.anytype ?? getRef("std::anypoint")}`,
-      runtimeType: [],
+      runtimeType: []
     };
   }
   if (type.name === "std::anyenum") {
     return {
       staticType: [`$.EnumType`],
-      runtimeType: [],
+      runtimeType: []
     };
   }
   const {types, casts} = params;
@@ -56,17 +56,17 @@ export const getStringRepresentation: (
     if (type.name === "std::BaseObject") {
       return {
         staticType: ["$.ObjectType"],
-        runtimeType: [getRef(type.name)],
+        runtimeType: [getRef(type.name)]
       };
     }
     return {
       staticType: [getRef(type.name)],
-      runtimeType: [getRef(type.name)],
+      runtimeType: [getRef(type.name)]
     };
   } else if (type.kind === "scalar") {
     return {
       staticType: [getRef(type.name), casts?.[type.id]?.length ? suffix : ""],
-      runtimeType: [getRef(type.name)],
+      runtimeType: [getRef(type.name)]
     };
     // const tsType = toJsScalarType(target, types, mod, body);
   } else if (type.kind === "array") {
@@ -78,7 +78,7 @@ export const getStringRepresentation: (
       runtimeType: frag`$.ArrayType(${
         getStringRepresentation(types.get(type.array_element_id), params)
           .runtimeType
-      })`,
+      })`
     };
   } else if (type.kind === "tuple") {
     const isNamed = type.tuple_elements[0].name !== "0";
@@ -106,7 +106,7 @@ export const getStringRepresentation: (
 
       return {
         staticType: frag`$.NamedTupleType<{${itemsStatic}}>`,
-        runtimeType: frag`$.NamedTupleType({${itemsRuntime}})`,
+        runtimeType: frag`$.NamedTupleType({${itemsRuntime}})`
       };
     } else {
       const items = type.tuple_elements
@@ -122,7 +122,7 @@ export const getStringRepresentation: (
         runtimeType: frag`$.TupleType([${joinFrags(
           items.map(it => it.runtimeType),
           ", "
-        )}])`,
+        )}])`
       };
     }
   } else if (type.kind === "range") {
@@ -134,7 +134,7 @@ export const getStringRepresentation: (
       runtimeType: frag`$.RangeType(${
         getStringRepresentation(types.get(type.range_element_id), params)
           .runtimeType
-      })`,
+      })`
     };
   } else {
     throw new Error("Invalid type");
@@ -147,7 +147,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
   const plainTypesCode = dir.getPath("types");
   const edgedb = "edgedb";
   plainTypesCode.addImportStar("edgedb", edgedb, {
-    typeOnly: true,
+    typeOnly: true
   });
   const plainTypeModules = new Map<
     string,
@@ -170,7 +170,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
       plainTypeModules.set(tMod, {
         internalName: makePlainIdent(tMod),
         buf: new CodeBuffer(),
-        types: new Map(),
+        types: new Map()
       });
     }
     return {tMod, tName, module: plainTypeModules.get(tMod)!};
@@ -199,7 +199,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
         module.buf.writeln(
           [t`export enum ${getEnumTypeName(type.name)} {`],
           ...type.enum_values.map(val => [
-            t`  ${makePlainIdent(val)} = ${quote(val)},`,
+            t`  ${makePlainIdent(val)} = ${quote(val)},`
           ]),
           [t`}`]
         );
@@ -208,18 +208,18 @@ export const generateObjectTypes = (params: GeneratorParams) => {
           module.buf.writeln(
             [js`const ${getEnumTypeName(type.name)} = {`],
             ...type.enum_values.map(val => [
-              js`  ${makePlainIdent(val)}: ${quote(val)},`,
+              js`  ${makePlainIdent(val)}: ${quote(val)},`
             ]),
             [js`}`]
           );
           plainTypesCode.addExport(getEnumTypeName(type.name), {
-            modes: ["js"],
+            modes: ["js"]
           });
         } else {
           module.buf.writeln(
             [js`"${getEnumTypeName(type.name)}": {`],
             ...type.enum_values.map(val => [
-              js`  ${makePlainIdent(val)}: ${quote(val)},`,
+              js`  ${makePlainIdent(val)}: ${quote(val)},`
             ]),
             [js`},`]
           );
@@ -248,15 +248,19 @@ export const generateObjectTypes = (params: GeneratorParams) => {
 
     const getTypeName = _getTypeName(mod);
 
-    const getTSType = (pointer: introspect.Pointer): string => {
+    const getTSType = (pointer: $.introspect.Pointer): string => {
       const targetType = types.get(pointer.target_id);
       if (pointer.kind === "link") {
         return getTypeName(targetType.name);
       } else {
-        return toTSScalarType(targetType as introspect.PrimitiveType, types, {
-          getEnumRef: enumType => getTypeName(enumType.name),
-          edgedbDatatypePrefix: "",
-        }).join("");
+        return toTSScalarType(
+          targetType as $.introspect.PrimitiveType,
+          types,
+          {
+            getEnumRef: enumType => getTypeName(enumType.name),
+            edgedbDatatypePrefix: ""
+          }
+        ).join("");
       }
     };
 
@@ -278,19 +282,19 @@ export const generateObjectTypes = (params: GeneratorParams) => {
           ? `{\n${type.pointers
               .map(pointer => {
                 const isOptional =
-                  pointer.real_cardinality === Cardinality.AtMostOne;
+                  pointer.real_cardinality === $.Cardinality.AtMostOne;
                 return `  ${quote(pointer.name)}${
                   isOptional ? "?" : ""
                 }: ${getTSType(pointer)}${
-                  pointer.real_cardinality === Cardinality.Many ||
-                  pointer.real_cardinality === Cardinality.AtLeastOne
+                  pointer.real_cardinality === $.Cardinality.Many ||
+                  pointer.real_cardinality === $.Cardinality.AtLeastOne
                     ? "[]"
                     : ""
                 }${isOptional ? " | null" : ""};`;
               })
               .join("\n")}\n}`
           : "{}"
-      }\n`,
+      }\n`
     ]);
 
     /////////
@@ -310,34 +314,35 @@ export const generateObjectTypes = (params: GeneratorParams) => {
       lines: Line[];
     };
 
-    const ptrToLine: (ptr: introspect.Pointer | introspect.Backlink) => Line =
-      ptr => {
-        const card = `$.Cardinality.${ptr.real_cardinality}`;
-        const target = types.get(ptr.target_id);
-        const {staticType, runtimeType} = getStringRepresentation(target, {
-          types,
-        });
+    const ptrToLine: (
+      ptr: $.introspect.Pointer | $.introspect.Backlink
+    ) => Line = ptr => {
+      const card = `$.Cardinality.${ptr.real_cardinality}`;
+      const target = types.get(ptr.target_id);
+      const {staticType, runtimeType} = getStringRepresentation(target, {
+        types
+      });
 
-        return {
-          key: ptr.name,
-          staticType,
-          runtimeType,
-          card,
-          kind: ptr.kind,
-          isExclusive: ptr.is_exclusive,
-          is_computed: ptr.is_computed ?? false,
-          is_readonly: ptr.is_readonly ?? false,
-          hasDefault: ptr.has_default ?? false,
-          lines: (ptr.pointers ?? [])
-            .filter(p => p.name !== "@target" && p.name !== "@source")
-            .map(ptrToLine),
-        };
+      return {
+        key: ptr.name,
+        staticType,
+        runtimeType,
+        card,
+        kind: ptr.kind,
+        isExclusive: ptr.is_exclusive,
+        is_computed: ptr.is_computed ?? false,
+        is_readonly: ptr.is_readonly ?? false,
+        hasDefault: ptr.has_default ?? false,
+        lines: (ptr.pointers ?? [])
+          .filter(p => p.name !== "@target" && p.name !== "@source")
+          .map(ptrToLine)
       };
+    };
 
     // unique
     // const BaseObject = params.typesByName["std::BaseObject"];
     // const uniqueStubs = [...new Set(type.backlinks.map((bl) => bl.stub))];
-    // const stubLines = uniqueStubs.map((stub): introspect.Pointer => {
+    // const stubLines = uniqueStubs.map((stub): $.introspect.Pointer => {
     //   return {
     //     real_cardinality: Cardinality.Many,
     //     kind: "link",
@@ -350,7 +355,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
     const lines = [
       ...type.pointers,
       ...type.backlinks,
-      ...type.backlink_stubs,
+      ...type.backlink_stubs
     ].map(ptrToLine);
 
     // generate shape type
@@ -358,11 +363,11 @@ export const generateObjectTypes = (params: GeneratorParams) => {
     const baseTypesUnion = type.bases.length
       ? frag`${joinFrags(
           type.bases.map(base => {
-            const baseType = types.get(base.id) as introspect.ObjectType;
+            const baseType = types.get(base.id) as $.introspect.ObjectType;
             const overloadedFields = [
               ...baseType.pointers,
               ...baseType.backlinks,
-              ...baseType.backlink_stubs,
+              ...baseType.backlink_stubs
             ]
               .filter(field => fieldNames.has(field.name))
               .map(field => quote(field.name));
@@ -377,7 +382,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
     body.writeln([
       t`export `,
       dts`declare `,
-      t`type ${ref}λShape = $.typeutil.flatten<${baseTypesUnion}{`,
+      t`type ${ref}λShape = $.typeutil.flatten<${baseTypesUnion}{`
     ]);
     body.indented(() => {
       for (const line of lines) {
@@ -386,32 +391,32 @@ export const generateObjectTypes = (params: GeneratorParams) => {
             body.writeln([
               t`${quote(line.key)}: $.LinkDesc<${line.staticType}, ${
                 line.card
-              }, {}, ${line.isExclusive.toString()}, ${line.is_computed.toString()},  ${line.is_readonly.toString()}, ${line.hasDefault.toString()}>;`,
+              }, {}, ${line.isExclusive.toString()}, ${line.is_computed.toString()},  ${line.is_readonly.toString()}, ${line.hasDefault.toString()}>;`
             ]);
           } else {
             body.writeln([
               t`${quote(line.key)}: $.LinkDesc<${line.staticType}, ${
                 line.card
-              }, {`,
+              }, {`
             ]);
             body.indented(() => {
               for (const linkProp of line.lines) {
                 body.writeln([
                   t`${quote(linkProp.key)}: $.PropertyDesc<${
                     linkProp.staticType
-                  }, ${linkProp.card}>;`,
+                  }, ${linkProp.card}>;`
                 ]);
               }
             });
             body.writeln([
-              t`}, ${line.isExclusive.toString()}, ${line.is_computed.toString()}, ${line.is_readonly.toString()}, ${line.hasDefault.toString()}>;`,
+              t`}, ${line.isExclusive.toString()}, ${line.is_computed.toString()}, ${line.is_readonly.toString()}, ${line.hasDefault.toString()}>;`
             ]);
           }
         } else {
           body.writeln([
             t`${quote(line.key)}: $.PropertyDesc<${line.staticType}, ${
               line.card
-            }, ${line.isExclusive.toString()}, ${line.is_computed.toString()}, ${line.is_readonly.toString()}, ${line.hasDefault.toString()}>;`,
+            }, ${line.isExclusive.toString()}, ${line.is_computed.toString()}, ${line.is_readonly.toString()}, ${line.hasDefault.toString()}>;`
           ]);
         }
       }
@@ -421,7 +426,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
     // instantiate ObjectType subtype from shape
     body.writeln([
       dts`declare `,
-      t`type ${ref} = $.ObjectType<${quote(type.name)}, ${ref}λShape, null>;`,
+      t`type ${ref} = $.ObjectType<${quote(type.name)}, ${ref}λShape, null>;`
     ]);
 
     if (type.name === "std::Object") {
@@ -439,7 +444,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
       dts`: ${ref}`,
       r` = $.makeType`,
       ts`<${ref}>`,
-      r`(_.spec, ${quote(type.id)}, _.syntax.literal);`,
+      r`(_.spec, ${quote(type.id)}, _.syntax.literal);`
     ]);
     body.addExport(ref);
     // body.addExport(ref, `$${name}`); // dollar
@@ -452,7 +457,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
       ...frag`const ${literal}`,
       // tslint:disable-next-line
       t`: $.$expr_PathNode<$.TypeSet<${ref}, $.Cardinality.${typeCard}>, null, true> `,
-      r`= _.syntax.$PathNode($.$toSet(${ref}, $.Cardinality.${typeCard}), null, true);`,
+      r`= _.syntax.$PathNode($.$toSet(${ref}, $.Cardinality.${typeCard}), null, true);`
     ]);
     body.nl();
 
@@ -477,7 +482,7 @@ export const generateObjectTypes = (params: GeneratorParams) => {
     plainTypesExportBuf.writeln([
       t`  ${quote(moduleName)}: {\n${[...module.types.entries()]
         .map(([name, typeName]) => `    ${quote(name)}: ${typeName};`)
-        .join("\n")}\n  };`,
+        .join("\n")}\n  };`
     ]);
   }
   plainTypesCode.writeln([t`export interface types {`]);

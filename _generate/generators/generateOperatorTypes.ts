@@ -1,27 +1,27 @@
 import {CodeBuffer, dts, r, t, ts} from "../builders.ts";
 import type {GeneratorParams} from "../generate.ts";
-import {frag, quote, splitName} from "../util/genutil.ts";
+import {frag, quote, splitName} from "../genutil.ts";
 import {
   allowsLiterals,
   generateFuncopDef,
   generateFuncopTypes,
-  generateReturnCardinality,
+  generateReturnCardinality
 } from "./generateFunctionTypes.ts";
 import {
   getTypesSpecificity,
   sortFuncopOverloads,
   getImplicitCastableRootTypes,
   expandFuncopAnytypeOverloads,
-  findPathOfAnytype,
-} from "../util/functionUtils.ts";
-import {introspect, OperatorKind} from "../index.ts";
+  findPathOfAnytype
+} from "../funcoputil.ts";
+import {$} from "../genutil.ts";
 import {getStringRepresentation} from "./generateObjectTypes.ts";
 
 export function generateOperatorFunctions({
   dir,
   operators,
   types,
-  casts,
+  casts
 }: GeneratorParams) {
   generateFuncopTypes(
     dir,
@@ -52,14 +52,14 @@ export function generateOperatorFunctions({
 const skipOperators = new Set<string>([
   "std::index",
   "std::slice",
-  "std::destructure",
+  "std::destructure"
 ]);
 
 export function generateOperators({
   dir,
   operators,
   types,
-  casts,
+  casts
 }: GeneratorParams) {
   const typeSpecificities = getTypesSpecificity(types, casts);
   const implicitCastableRootTypes = getImplicitCastableRootTypes(casts);
@@ -74,7 +74,7 @@ export function generateOperators({
   const overloadDefs: {
     [opKind: string]: {[opSymbol: string]: string[]};
   } = {};
-  for (const opKind of Object.values(OperatorKind)) {
+  for (const opKind of Object.values($.OperatorKind)) {
     overloadDefs[opKind] = {};
   }
 
@@ -113,7 +113,7 @@ export function generateOperators({
         overloadsBuf.writeln([
           t`/**
 * ${opDef.description.replace(/\*\//g, "")}
-*/`,
+*/`
         ]);
       }
 
@@ -124,7 +124,7 @@ export function generateOperators({
 
       function getParamAnytype(
         paramTypeName: string,
-        paramType: introspect.Type
+        paramType: $.introspect.Type
       ) {
         if (!anytypes) return undefined;
         if (anytypes.kind === "castable") {
@@ -154,7 +154,7 @@ export function generateOperators({
           const paramTypeStr = getStringRepresentation(param.type, {
             types,
             anytype,
-            casts: casts.implicitCastFromMap,
+            casts: casts.implicitCastFromMap
           });
 
           let type = frag`$.TypeSet<${paramTypeStr.staticType}>`;
@@ -175,21 +175,21 @@ export function generateOperators({
           param => `${param.internalName}: ${param.typeName}`
         );
         switch (opDef.operator_kind) {
-          case OperatorKind.Infix:
+          case $.OperatorKind.Infix:
             overloadsBuf.writeln([
-              t`${args[0]}, op: ${quote(opSymbol)}, ${args[1]}`,
+              t`${args[0]}, op: ${quote(opSymbol)}, ${args[1]}`
             ]);
             break;
-          case OperatorKind.Prefix:
+          case $.OperatorKind.Prefix:
             overloadsBuf.writeln([t`op: ${quote(opSymbol)}, ${args[0]}`]);
             break;
-          case OperatorKind.Postfix:
+          case $.OperatorKind.Postfix:
             overloadsBuf.writeln([t`${args[0]}, op: ${quote(opSymbol)}`]);
             break;
-          case OperatorKind.Ternary:
+          case $.OperatorKind.Ternary:
             if (opName === "std::if_else") {
               overloadsBuf.writeln([
-                t`${args[0]}, op: "if", ${args[1]}, op2: "else", ${args[2]}`,
+                t`${args[0]}, op: "if", ${args[1]}, op2: "else", ${args[2]}`
               ]);
             } else {
               throw new Error(`unknown ternary operator: ${opName}`);
@@ -223,7 +223,7 @@ export function generateOperators({
         types.get(opDef.return_type.id),
         {
           types,
-          anytype: returnAnytype,
+          anytype: returnAnytype
         }
       );
 
@@ -236,7 +236,7 @@ export function generateOperators({
             hasLiterals
               ? `_.castMaps.mapLiteralToTypeSet<[${paramTypeNames}]>`
               : `[${paramTypeNames}]`
-          },`,
+          },`
         ]);
         overloadsBuf.writeln([
           t`$.TypeSet<${returnType.staticType}, ${generateReturnCardinality(
@@ -245,7 +245,7 @@ export function generateOperators({
             opDef.return_typemod,
             false,
             anytypes
-          )}>`,
+          )}>`
         ]);
       });
       overloadsBuf.writeln([t`>;`]);
@@ -260,7 +260,7 @@ export function generateOperators({
     [opSymbol: string]: any[]
   }
 }`,
-    r` = {`,
+    r` = {`
   ]);
   code.indented(() => {
     for (const opKind of Object.keys(overloadDefs)) {
@@ -323,12 +323,12 @@ export function generateOperators({
 
   if (!defs) {
     throw new Error(\`No operator exists with signature: \${args.map(arg => \`\${arg}\`).join(", ")}\`);
-  }`,
+  }`
     ]);
 
     code.nl();
     code.writeln([
-      r`const {kind, returnType, cardinality, args: resolvedArgs} = _.syntax.$resolveOverload(op, params, _.spec, defs);`,
+      r`const {kind, returnType, cardinality, args: resolvedArgs} = _.syntax.$resolveOverload(op, params, _.spec, defs);`
     ]);
     code.nl();
     code.writeln([r`return _.syntax.$expressionify({`]);

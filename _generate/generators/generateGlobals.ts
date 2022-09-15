@@ -1,12 +1,12 @@
 import type {GeneratorParams} from "../generate.ts";
-import {frag, getRef, splitName} from "../util/genutil.ts";
+import {frag, getRef, splitName} from "../genutil.ts";
 import {dts, r, t, ts} from "../builders.ts";
 
 import {getStringRepresentation} from "./generateObjectTypes.ts";
-import {GlobalType} from "../queries/getGlobals.ts";
+import type {$} from "../genutil.ts";
 
 export const generateGlobals = ({dir, globals, types}: GeneratorParams) => {
-  const globalsByMod: {[k: string]: GlobalType[]} = {};
+  const globalsByMod: {[k: string]: $.introspect.GlobalType[]} = {};
   for (const [_id, g] of globals.entries()) {
     const {mod} = splitName(g.name);
     globalsByMod[mod] = globalsByMod[mod] || [];
@@ -30,7 +30,7 @@ export const generateGlobals = ({dir, globals, types}: GeneratorParams) => {
               ${targetTypeRep.staticType},
               $.Cardinality.${g.real_cardinality}
               >`,
-            t`,`,
+            t`,`
           ];
         })
         .slice(0, -1), // slice last comma
@@ -45,11 +45,11 @@ export const generateGlobals = ({dir, globals, types}: GeneratorParams) => {
               $.makeType(_.spec, "${g.target_id}", _.syntax.literal),
               $.Cardinality.${g.real_cardinality})`,
             ts` as any`,
-            r`,`,
+            r`,`
           ];
         })
         .slice(0, -1), // slice last comma
-      r`};`,
+      r`};`
     ]);
 
     code.nl();
