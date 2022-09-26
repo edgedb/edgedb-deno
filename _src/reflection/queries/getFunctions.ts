@@ -1,8 +1,8 @@
 import {Executor} from "../../ifaces.ts";
 import {StrictMap} from "../strictMap.ts";
-import type {typeutil} from "../typeutil.ts";
-import {typeMapping} from "./types.ts";
-import type {Version} from "./queryTypes.ts";
+import {typeutil} from "../index.ts";
+import {typeMapping} from "./getTypes.ts";
+import type {Version} from "../generate.ts";
 
 export type Typemod = "SetOfType" | "OptionalType" | "SingletonType";
 
@@ -68,7 +68,7 @@ export const getFunctions = async (
 
     const funcDef: FunctionDef = {
       ...func,
-      description: func.annotations[0]?.["@value"]
+      description: func.annotations[0]?.["@value"],
     };
 
     replaceNumberTypes(funcDef);
@@ -92,7 +92,7 @@ export function replaceNumberTypes(def: {
     const type = typeMapping.get(def.return_type.id)!;
     def.return_type = {
       id: type.id,
-      name: type.name
+      name: type.name,
     };
   }
 
@@ -101,7 +101,7 @@ export function replaceNumberTypes(def: {
       const type = typeMapping.get(param.type.id)!;
       param.type = {
         id: type.id,
-        name: type.name
+        name: type.name,
       };
     }
   }
@@ -118,10 +118,10 @@ function hashFuncDef(def: FunctionDef): string {
           kind: param.kind,
           type: param.type.id,
           typemod: param.typemod,
-          hasDefault: !!param.hasDefault
+          hasDefault: !!param.hasDefault,
         })
       )
       .sort(),
-    preserves_optionality: def.preserves_optionality
+    preserves_optionality: def.preserves_optionality,
   });
 }

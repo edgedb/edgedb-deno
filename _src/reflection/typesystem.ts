@@ -2,9 +2,9 @@ import type {Executor} from "../ifaces.ts";
 import type {$expr_PathNode, $expr_TypeIntersection, $pathify} from "./path.ts";
 import type {$expr_Literal} from "./literal.ts";
 import type {$expr_Operator} from "./funcops.ts";
-import type {typeutil} from "./typeutil.ts";
+import type {typeutil} from "./util/typeutil.ts";
 import {Cardinality, ExpressionKind, OperatorKind, TypeKind} from "./enums.ts";
-import {cardutil} from "./cardinality.ts";
+import {cardinalityUtil} from "./util/cardinalityUtil.ts";
 import type {Range} from "../datatypes/range.ts";
 
 //////////////////
@@ -68,7 +68,7 @@ type $jsonDestructure<Set extends TypeSet> =
           [Set, TypeSet],
           TypeSet<
             Set["__element__"],
-            cardutil.multiplyCardinalities<
+            cardinalityUtil.multiplyCardinalities<
               Set["__cardinality__"],
               T extends TypeSet ? T["__cardinality__"] : Cardinality.One
             >
@@ -96,7 +96,7 @@ export function $toSet<Root extends BaseType, Card extends Cardinality>(
 ): TypeSet<Root, Card> {
   return {
     __element__: root,
-    __cardinality__: card
+    __cardinality__: card,
   };
 }
 
@@ -150,7 +150,10 @@ export type stripSetShape<T> = {
 // returned 'any' every time
 export type assert_single<Expr extends TypeSet> = Expression<{
   __element__: Expr["__element__"];
-  __cardinality__: cardutil.overrideUpperBound<Expr["__cardinality__"], "One">;
+  __cardinality__: cardinalityUtil.overrideUpperBound<
+    Expr["__cardinality__"],
+    "One"
+  >;
   __kind__: ExpressionKind.Function;
   __name__: "std::assert_single";
   __args__: [TypeSet]; // discard wrapped expression
@@ -428,7 +431,7 @@ type $arrayLikeIndexify<Set extends TypeSet> = Set["__element__"] extends
               ? El
               : Set["__element__"]
           >,
-          cardutil.multiplyCardinalities<
+          cardinalityUtil.multiplyCardinalities<
             Set["__cardinality__"],
             T extends TypeSet ? T["__cardinality__"] : Cardinality.One
           >
@@ -450,8 +453,8 @@ type $arrayLikeIndexify<Set extends TypeSet> = Set["__element__"] extends
         [Set, TypeSet],
         TypeSet<
           getPrimitiveBaseType<Set["__element__"]>,
-          cardutil.multiplyCardinalities<
-            cardutil.multiplyCardinalities<
+          cardinalityUtil.multiplyCardinalities<
+            cardinalityUtil.multiplyCardinalities<
               Set["__cardinality__"],
               S extends TypeSet ? S["__cardinality__"] : Cardinality.One
             >,
@@ -474,7 +477,7 @@ type $arrayLikeIndexify<Set extends TypeSet> = Set["__element__"] extends
         [Set, TypeSet],
         TypeSet<
           getPrimitiveBaseType<Set["__element__"]>,
-          cardutil.multiplyCardinalities<
+          cardinalityUtil.multiplyCardinalities<
             Set["__cardinality__"],
             E extends TypeSet ? E["__cardinality__"] : Cardinality.One
           >
@@ -554,7 +557,7 @@ export type $expr_Tuple<
   __kind__: ExpressionKind.Tuple;
   __items__: Items;
   __element__: tupleElementsToTupleType<Items>;
-  __cardinality__: cardutil.multiplyCardinalitiesVariadic<
+  __cardinality__: cardinalityUtil.multiplyCardinalitiesVariadic<
     tupleElementsToCardTuple<Items>
   >;
 }>;
