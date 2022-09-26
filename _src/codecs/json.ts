@@ -23,6 +23,8 @@ import {ICodec, ScalarCodec} from "./ifaces.ts";
 import {InvalidArgumentError, ProtocolError} from "../errors/index.ts";
 
 export class JSONCodec extends ScalarCodec implements ICodec {
+  tsType = "unknown";
+
   encode(buf: WriteBuffer, object: any): void {
     let val: string;
     try {

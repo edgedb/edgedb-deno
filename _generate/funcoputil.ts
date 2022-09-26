@@ -1,7 +1,7 @@
 import {$} from "../mod.ts";
 import type {CodeFragment} from "./builders.ts";
-import type {FuncopDef} from "./generators/generateFunctionTypes.ts";
-import {getStringRepresentation} from "./generators/generateObjectTypes.ts";
+import type {FuncopDef} from "./edgeql-js/generateFunctionTypes.ts";
+import {getStringRepresentation} from "./edgeql-js/generateObjectTypes.ts";
 import {frag, getRef, makeValidIdent, quote} from "./genutil.ts";
 
 export type AnytypeDef =
