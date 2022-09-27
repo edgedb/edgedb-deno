@@ -1,3 +1,4 @@
+// tslint:disable
 import {createClient, adapter} from "../mod.ts";
 import type {ConnectConfig} from "../_src/conUtils.ts";
 import type {CommandOptions} from "./commandutil.ts";
