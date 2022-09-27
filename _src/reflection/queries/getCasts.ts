@@ -1,7 +1,7 @@
 import {Executor} from "../../ifaces.ts";
-import type {Version} from "./queryTypes.ts";
-import type {typeutil} from "../typeutil.ts";
-import {typeMapping} from "./types.ts";
+import type {Version} from "../generate.ts";
+import {typeutil} from "../util/typeutil.ts";
+import {typeMapping} from "./getTypes.ts";
 
 type Cast = {
   id: string;
@@ -160,6 +160,6 @@ export const getCasts = async (
     implicitCastMap,
     implicitCastFromMap,
     assignmentCastMap,
-    assignableByMap
+    assignableByMap,
   };
 };

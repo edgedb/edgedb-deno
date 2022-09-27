@@ -24,7 +24,7 @@ export {
   LocalTime,
   Duration,
   RelativeDuration,
-  DateDuration
+  DateDuration,
 } from "./datatypes/datetime.ts";
 export {ConfigMemory} from "./datatypes/memory.ts";
 export {Range} from "./datatypes/range.ts";
