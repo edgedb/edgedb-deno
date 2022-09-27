@@ -2,8 +2,8 @@
 import {createClient, adapter} from "../mod.ts";
 import type {ConnectConfig} from "../_src/conUtils.ts";
 import type {CommandOptions} from "./commandutil.ts";
-import {generateQueryType} from "./queries/codecToType.ts";
-import type {QueryType} from "./queries/codecToType.ts";
+import {generateQueryType} from "./codecToType.ts";
+import type {QueryType} from "./codecToType.ts";
 // import chokidar from "chokidar";
 // import globby from "globby";
 import type {Target} from "./generate.ts";
