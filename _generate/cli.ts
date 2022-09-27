@@ -14,10 +14,10 @@ import {
   readPasswordFromStdin
 } from "./commandutil.ts";
 import {generateQueryBuilder} from "./edgeql-js.ts";
-import {exitWithError, Target} from "./generate.ts";
+import {exitWithError} from "./generate.ts";
 import {generateQueryFiles} from "./queries.ts";
 
-const {path, readFileUtf8, exists, input} = adapter;
+const {path, readFileUtf8, exists} = adapter;
 
 enum Generator {
   QueryBuilder = "edgeql-js",
