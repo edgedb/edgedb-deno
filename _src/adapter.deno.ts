@@ -3,7 +3,7 @@ import {Buffer} from "https://deno.land/std@0.114.0/node/buffer.ts";
 import * as crypto from "https://deno.land/std@0.114.0/node/crypto.ts";
 import {
   Sha256,
-  HmacSha256,
+  HmacSha256
 } from "https://deno.land/std@0.114.0/hash/sha256.ts";
 
 import path from "https://deno.land/std@0.114.0/node/path.ts";
@@ -31,14 +31,19 @@ export async function readDir(path: string) {
   }
 }
 
-export async function walk(path: string) {
+export async function walk(
+  path: string,
+  params?: {match?: RegExp[]; skip?: RegExp[]}
+) {
+  const {match, skip} = params || {};
   await _fs.ensureDir(path);
-  const entries = _fs.walk(path);
+  const entries = _fs.walk(path, {match, skip});
   const files: string[] = [];
   for await (const e of entries) {
-    if (e.isFile) {
-      files.push(e.path);
+    if (!e.isFile) {
+      continue;
     }
+    files.push(e.path);
   }
   return files;
 }
@@ -276,7 +281,7 @@ export namespace tls {
       port: options.port,
       hostname: options.host,
       alpnProtocols: options.ALPNProtocols,
-      caCerts: typeof options.ca === "string" ? [options.ca] : options.ca,
+      caCerts: typeof options.ca === "string" ? [options.ca] : options.ca
     });
 
     return new TLSSocket(conn);
