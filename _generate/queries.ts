@@ -19,18 +19,18 @@ export async function generateQueryFiles(params: {
 currently supported.`);
   }
 
-  console.log(`Detecting project root...`);
+  // console.log(`Detecting project root...`);
 
   const noRoot = !params.root;
   const root = params.root ?? adapter.process.cwd();
   if (noRoot) {
     console.warn(
-      `No \`edgedb.toml\` found. Using process.cwd() instead:
+      `No \`edgedb.toml\` found, using process.cwd() as root directory:
    ${params.root}
 `
     );
   } else {
-    console.log(`Found edgedb.toml.`);
+    console.log(`Detected project root via edgedb.toml:`);
     console.log("   " + params.root);
   }
   const client = createClient({
@@ -45,29 +45,24 @@ currently supported.`);
 
   const matches = await getMatches(root);
 
+  console.log(`Generating files for following queries:`);
   for (const path of matches) {
     const prettyPath = "./" + adapter.path.posix.relative(root, path);
-    console.log(`Generating query file for ${prettyPath}`);
+    console.log(`   ${prettyPath}`);
     const query = await adapter.readFileUtf8(path);
     const types = await generateQueryType(client, query);
-    console.log(JSON.stringify(types, null, 2));
-    for (const [k, v] of Object.entries(types) as any) {
-      console.log(`${k}\n${v}`);
-    }
     const files = await generateFiles({
       target: params.options.target!,
       path,
       types
     });
     for (const file of files) {
-      console.log(`Writing ${file.path}...`);
       await adapter.fs.writeFile(
         file.path,
         `${file.imports}\n\n${file.contents}`
       );
     }
   }
-  console.log("Done.");
 
   // if (!params.options.watch) {
   //   const matches = await getMatches(root);
@@ -133,7 +128,6 @@ function generateFiles(params: {
       ? "querySingle"
       : "query";
   const functionName = queryFileName.replace(".edgeql", "");
-  console.log(`func: ${functionName}`);
 
   const tsImports = `import type {${["Client", ...params.types.imports].join(
     ", "
