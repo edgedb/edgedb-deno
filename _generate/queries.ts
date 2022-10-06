@@ -4,8 +4,6 @@ import type {ConnectConfig} from "../_src/conUtils.ts";
 import type {CommandOptions} from "./commandutil.ts";
 import {generateQueryType} from "./codecToType.ts";
 import type {QueryType} from "./codecToType.ts";
-// import chokidar from "chokidar";
-// import globby from "globby";
 import type {Target} from "./generate.ts";
 import {Cardinality} from "../_src/ifaces.ts";
 
@@ -41,8 +39,6 @@ currently supported.`);
     concurrency: 5
   });
 
-  // watch mode: start watcher
-
   // file mode: introspect all queries and generate one file
   // generate one query per file
 
@@ -52,12 +48,9 @@ currently supported.`);
   await client.ensureConnected();
 
   console.log(`Searching for .edgeql files...`);
-  if (params.options.file) {
-    // let filePath = adapter.path.join(
-    //   root,
-    //   params.options.file ?? "dbschema/queries.ts"
-    // );
 
+  // generate all queries in single file
+  if (params.options.file) {
     const filesByExtension: {
       [k: string]: ReturnType<typeof generateFiles>[number];
     } = {};
@@ -84,9 +77,9 @@ currently supported.`);
       }
     }
     console.log(
-      `Generating file${
+      `Generating query file${
         Object.keys(filesByExtension).length > 1 ? "s" : ""
-      } for queries...`
+      }...`
     );
     for (const [extension, file] of Object.entries(filesByExtension)) {
       const filePath = adapter.path.join(
@@ -94,7 +87,6 @@ currently supported.`);
         params.options.file + extension
       );
       const prettyPath = "./" + adapter.path.posix.relative(root, filePath);
-      console.log(filePath);
       console.log(`   ${prettyPath}`);
       await adapter.fs.writeFile(
         filePath,
@@ -105,51 +97,36 @@ currently supported.`);
     return;
   }
 
-  console.log(`Generating files for following queries:`);
-  for (const path of matches) {
-    const prettyPath = "./" + adapter.path.posix.relative(root, path);
-    console.log(`   ${prettyPath}`);
+  async function generateFilesForQuery(path: string) {
     const query = await adapter.readFileUtf8(path);
+    if (!query) return;
     const types = await generateQueryType(client, query);
     const files = await generateFiles({
       target: params.options.target!,
       path,
       types
     });
-
-    for (const file of files) {
+    for (const f of files) {
+      const prettyPath = "./" + adapter.path.posix.relative(root, f.path);
+      console.log(`   ${prettyPath}`);
       await adapter.fs.writeFile(
-        file.path,
-        `${file.imports}\n\n${file.contents}`
+        f.path,
+        `${stringifyImports(f.imports)}\n\n${f.contents}`
       );
     }
   }
 
-  adapter.exit();
-
-  // if (!params.options.watch) {
-  //   const matches = await getMatches(root);
-  // } else {
-  //   const watcher = chokidar.watch("**/*.edgeql", {
-  //     cwd: root
-  //   });
-
-  //   // const method = params.options.watch ? watcher.on : watcher.once;
-  //   return watcher.once("all", async (evt, path, stats) => {
-  //     if (["add", "change"].includes(evt)) {
-  //       const modifier = {
-  //         add: "Detected:  ",
-  //         change: "Modified:   ",
-  //         unlink: "Deleted:   "
-  //       }[evt as string];
-  //       console.log(`${modifier}: ${path}`);
-
-  //       const prettyPath = adapter.path.posix.relative(root, path);
-  //       console.log(`Query ${prettyPath}`);
-  //     } else if (evt === "unlink") {
-  //     }
-  //   });
+  // generate per-query files
+  console.log(`Generating files for following queries:`);
+  await Promise.all(matches.map(generateFilesForQuery));
+  // for (const path of matches) {
+  //   await generateFilesForQuery(path)
   // }
+
+  if (!params.options.watch) {
+    adapter.exit();
+    return;
+  }
 
   // find all *.edgeql files
   // for query in queries:
@@ -159,9 +136,10 @@ currently supported.`);
 function stringifyImports(imports: {[k: string]: boolean}) {
   return `import type {${Object.keys(imports).join(", ")}} from "edgedb";`;
 }
+
 async function getMatches(root: string) {
   return adapter.walk(root, {
-    match: [/\.edgeql$/],
+    match: [/[^\/]\.edgeql$/],
     skip: [/node_modules/, /dbschema\/migrations/]
   });
   // return globby.globby("**/*.edgeql", {
