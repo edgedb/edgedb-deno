@@ -3,7 +3,7 @@ import {Buffer} from "https://deno.land/std@0.114.0/node/buffer.ts";
 import * as crypto from "https://deno.land/std@0.114.0/node/crypto.ts";
 import {
   Sha256,
-  HmacSha256
+  HmacSha256,
 } from "https://deno.land/std@0.114.0/hash/sha256.ts";
 
 import path from "https://deno.land/std@0.114.0/node/path.ts";
@@ -31,19 +31,14 @@ export async function readDir(path: string) {
   }
 }
 
-export async function walk(
-  path: string,
-  params?: {match?: RegExp[]; skip?: RegExp[]}
-) {
-  const {match, skip} = params || {};
+export async function walk(path: string) {
   await _fs.ensureDir(path);
-  const entries = _fs.walk(path, {match, skip});
+  const entries = _fs.walk(path);
   const files: string[] = [];
   for await (const e of entries) {
-    if (!e.isFile) {
-      continue;
+    if (e.isFile) {
+      files.push(e.path);
     }
-    files.push(e.path);
   }
   return files;
 }
@@ -54,11 +49,10 @@ export async function exists(fn: string | URL): Promise<boolean> {
     await Deno.lstat(fn);
     return true;
   } catch (err) {
-    return false;
-    // if (err instanceof Deno.errors.NotFound) {
-    //   return false;
-    // }
-    // throw err;
+    if (err instanceof Deno.errors.NotFound) {
+      return false;
+    }
+    throw err;
   }
 }
 
@@ -282,7 +276,7 @@ export namespace tls {
       port: options.port,
       hostname: options.host,
       alpnProtocols: options.ALPNProtocols,
-      caCerts: typeof options.ca === "string" ? [options.ca] : options.ca
+      caCerts: typeof options.ca === "string" ? [options.ca] : options.ca,
     });
 
     return new TLSSocket(conn);

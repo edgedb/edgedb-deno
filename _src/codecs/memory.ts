@@ -22,9 +22,6 @@ import {ConfigMemory} from "../datatypes/memory.ts";
 import {InvalidArgumentError} from "../errors/index.ts";
 
 export class ConfigMemoryCodec extends ScalarCodec implements ICodec {
-  tsType = "ConfigMemory";
-  importedType = true;
-
   encode(buf: WriteBuffer, object: any): void {
     if (!(object instanceof ConfigMemory)) {
       throw new InvalidArgumentError(

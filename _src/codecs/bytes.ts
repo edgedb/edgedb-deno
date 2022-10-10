@@ -23,8 +23,6 @@ import {ICodec, ScalarCodec} from "./ifaces.ts";
 import {InvalidArgumentError} from "../errors/index.ts";
 
 export class BytesCodec extends ScalarCodec implements ICodec {
-  tsType = "Buffer";
-
   encode(buf: WriteBuffer, object: any): void {
     if (!(object instanceof Buffer)) {
       throw new InvalidArgumentError(`a Buffer was expected, got "${object}"`);

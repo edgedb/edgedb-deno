@@ -1,10 +1,10 @@
 import {Executor} from "../../ifaces.ts";
 import {StrictMap} from "../strictMap.ts";
 
-import {Param, replaceNumberTypes, Typemod} from "./functions.ts";
-import {util} from "../util.ts";
-import {typeutil} from "../typeutil.ts";
+import {Param, replaceNumberTypes, Typemod} from "./getFunctions.ts";
+import {genutil, typeutil} from "../util/util.ts";
 import {OperatorKind} from "../enums.ts";
+import type {Version} from "../generate.ts";
 
 export type {Typemod};
 
@@ -23,7 +23,10 @@ export type OperatorTypes = typeutil.depromisify<
   ReturnType<typeof getOperators>
 >;
 
-export const getOperators = async (cxn: Executor) => {
+export const getOperators = async (
+  cxn: Executor,
+  _params: {version: Version}
+) => {
   const operatorsJson = await cxn.queryJSON(`
     with module schema
     select Operator {
@@ -58,7 +61,7 @@ export const getOperators = async (cxn: Executor) => {
       continue;
     }
 
-    const {mod} = util.splitName(op.name);
+    const {mod} = genutil.splitName(op.name);
 
     const name = `${mod}::${identifier}`;
 
@@ -74,7 +77,7 @@ export const getOperators = async (cxn: Executor) => {
       description: op.annotations.find(
         (anno: any) => anno.name === "std::description"
       )?.["@value"],
-      annotations: undefined
+      annotations: undefined,
     };
 
     replaceNumberTypes(opDef);
@@ -101,10 +104,10 @@ function hashOpDef(def: OperatorDef): string {
           kind: param.kind,
           type: param.type.id,
           typemod: param.typemod,
-          hasDefault: !!param.hasDefault
+          hasDefault: !!param.hasDefault,
         })
       )
       .sort(),
-    operator_kind: def.operator_kind
+    operator_kind: def.operator_kind,
   });
 }

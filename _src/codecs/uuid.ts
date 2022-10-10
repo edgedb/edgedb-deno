@@ -68,8 +68,6 @@ export function bytesToHex(buf: Buffer) {
 }
 
 export class UUIDCodec extends ScalarCodec implements ICodec {
-  tsType = "string";
-
   encode(buf: WriteBuffer, object: any): void {
     if (typeof object === "string") {
       const ubuf = UUIDBufferFromString(object);

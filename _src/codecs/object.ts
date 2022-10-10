@@ -26,7 +26,7 @@ import {
   MissingArgumentError,
   QueryArgumentError,
   UnknownArgumentError,
-  ProtocolError
+  ProtocolError,
 } from "../errors/index.ts";
 
 const EDGE_POINTER_IS_IMPLICIT = 1 << 0;
@@ -36,7 +36,6 @@ export interface ObjectFieldInfo {
   name: string;
   implicit: boolean;
   linkprop: boolean;
-  cardinality: number;
 }
 
 export class ObjectCodec extends Codec implements ICodec {
@@ -67,7 +66,6 @@ export class ObjectCodec extends Codec implements ICodec {
         name,
         implicit: !!(flags[i] & EDGE_POINTER_IS_IMPLICIT),
         linkprop: isLinkprop,
-        cardinality: cards[i]
       };
       this.namesSet.add(name);
     }

@@ -1,7 +1,9 @@
 import {Executor} from "../../ifaces.ts";
 import {Cardinality} from "../enums.ts";
-import type {UUID} from "./queryTypes.ts";
+import type {Version} from "../generate.ts";
 import {StrictMap} from "../strictMap.ts";
+
+export type UUID = string;
 
 export type Pointer = {
   real_cardinality: Cardinality;
@@ -96,40 +98,37 @@ const numberType: ScalarType = {
   kind: "scalar",
   enum_values: null,
   material_id: null,
-  bases: []
+  bases: [],
 };
 
 export const typeMapping = new Map([
   [
     "00000000-0000-0000-0000-000000000103", // int16
-    numberType
+    numberType,
   ],
   [
     "00000000-0000-0000-0000-000000000104", // int32
-    numberType
+    numberType,
   ],
   [
     "00000000-0000-0000-0000-000000000105", // int64
-    numberType
+    numberType,
   ],
   [
     "00000000-0000-0000-0000-000000000106", // float32
-    numberType
+    numberType,
   ],
   [
     "00000000-0000-0000-0000-000000000107", // float64
-    numberType
-  ]
+    numberType,
+  ],
 ]);
 
 export async function getTypes(
   cxn: Executor,
-  params: {debug?: boolean}
+  params: {debug?: boolean; version: Version}
 ): Promise<Types> {
-  const version = await cxn.queryRequiredSingle<number>(
-    `select sys::get_version().major;`
-  );
-  const v2Plus = version >= 2;
+  const v2Plus = params.version.major >= 2;
   const QUERY = `
     WITH
       MODULE schema,

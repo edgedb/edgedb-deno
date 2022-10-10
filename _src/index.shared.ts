@@ -24,7 +24,7 @@ export {
   LocalTime,
   Duration,
   RelativeDuration,
-  DateDuration
+  DateDuration,
 } from "./datatypes/datetime.ts";
 export {ConfigMemory} from "./datatypes/memory.ts";
 export {Range} from "./datatypes/range.ts";
@@ -43,3 +43,5 @@ export type _ICodec = codecs.ICodec;
 
 import {plugJSBI} from "./primitives/bigint.ts";
 export const _plugJSBI = plugJSBI;
+
+export const _edgedbJsVersion: string = "0.0.0";

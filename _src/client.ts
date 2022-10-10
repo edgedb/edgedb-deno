@@ -21,7 +21,7 @@ import {CodecsRegistry} from "./codecs/registry.ts";
 import {
   ConnectConfig,
   NormalizedConnectConfig,
-  parseConnectArguments
+  parseConnectArguments,
 } from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
 import {Cardinality, Executor, OutputFormat, QueryArgs} from "./ifaces.ts";
@@ -31,7 +31,7 @@ import {
   Session,
   SimpleRetryOptions,
   SimpleTransactionOptions,
-  TransactionOptions
+  TransactionOptions,
 } from "./options.ts";
 import Event from "./primitives/event.ts";
 import {LifoQueue} from "./primitives/queues.ts";
@@ -126,7 +126,7 @@ export class ClientConnectionHolder {
       try {
         result = await Promise.race([
           action(transaction),
-          transaction._waitForConnAbort()
+          transaction._waitForConnAbort(),
         ]);
         try {
           await transaction._commit();
@@ -268,7 +268,7 @@ export class ClientConnectionHolder {
   }
 }
 
-export class ClientPool {
+class ClientPool {
   private _closing: Event | null;
   private _queue: LifoQueue<ClientConnectionHolder>;
   private _holders: ClientConnectionHolder[];
@@ -276,13 +276,8 @@ export class ClientPool {
   private _suggestedConcurrency: number | null;
   private _connectConfig: ConnectConfig;
   private _codecsRegistry: CodecsRegistry;
-  private _exposeErrorAttrs: boolean;
 
-  constructor(
-    dsn?: string,
-    options: ConnectOptions = {},
-    exposeErrorAttrs: boolean = false
-  ) {
+  constructor(dsn?: string, options: ConnectOptions = {}) {
     this.validateClientOptions(options);
 
     this._codecsRegistry = new CodecsRegistry();
@@ -293,7 +288,6 @@ export class ClientPool {
     this._suggestedConcurrency = null;
     this._closing = null;
     this._connectConfig = {...options, ...(dsn !== undefined ? {dsn} : {})};
-    this._exposeErrorAttrs = exposeErrorAttrs;
 
     this._resizeHolderPool();
   }
@@ -318,7 +312,7 @@ export class ClientPool {
     return {
       queueLength: this._queue.pending,
       openConnections: this._holders.filter(holder => holder.connectionOpen)
-        .length
+        .length,
     };
   }
 
@@ -378,11 +372,7 @@ export class ClientPool {
     }
 
     const config = await this._getNormalizedConnectConfig();
-    const connection = await retryingConnect(
-      config,
-      this._codecsRegistry,
-      this._exposeErrorAttrs
-    );
+    const connection = await retryingConnect(config, this._codecsRegistry);
 
     const suggestedConcurrency =
       connection.serverSettings.suggested_pool_concurrency;

@@ -1,7 +1,9 @@
 import {Executor} from "../../ifaces.ts";
 import {Cardinality} from "../enums.ts";
-import type {UUID} from "./queryTypes.ts";
+import type {Version} from "../generate.ts";
 import {StrictMap} from "../strictMap.ts";
+
+export type UUID = string;
 
 export type GlobalType = {
   id: UUID;
@@ -13,15 +15,14 @@ export type GlobalType = {
 
 export type Globals = StrictMap<UUID, GlobalType>;
 
-export async function getGlobals(cxn: Executor): Promise<Globals> {
+export async function getGlobals(
+  cxn: Executor,
+  params: {version: Version}
+): Promise<Globals> {
   const globalsMap = new Map();
-  const version = await cxn.queryRequiredSingle<number>(
-    `select sys::get_version().major;`
-  );
-  if (version === 1) {
+  if (params.version.major < 2) {
     return globalsMap;
   }
-
   const QUERY = `
     WITH
       MODULE schema
