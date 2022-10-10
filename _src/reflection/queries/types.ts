@@ -1,6 +1,6 @@
 import {Executor} from "../../ifaces.ts";
 import {Cardinality} from "../enums.ts";
-import type {Version, UUID} from "./queryTypes.ts";
+import type {UUID} from "./queryTypes.ts";
 import {StrictMap} from "../strictMap.ts";
 
 export type Pointer = {
@@ -124,9 +124,12 @@ export const typeMapping = new Map([
 
 export async function getTypes(
   cxn: Executor,
-  params: {debug?: boolean; version: Version}
+  params: {debug?: boolean}
 ): Promise<Types> {
-  const v2Plus = params.version.major >= 2;
+  const version = await cxn.queryRequiredSingle<number>(
+    `select sys::get_version().major;`
+  );
+  const v2Plus = version >= 2;
   const QUERY = `
     WITH
       MODULE schema,

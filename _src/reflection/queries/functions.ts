@@ -2,7 +2,6 @@ import {Executor} from "../../ifaces.ts";
 import {StrictMap} from "../strictMap.ts";
 import type {typeutil} from "../typeutil.ts";
 import {typeMapping} from "./types.ts";
-import type {Version} from "./queryTypes.ts";
 
 export type Typemod = "SetOfType" | "OptionalType" | "SingletonType";
 
@@ -30,10 +29,7 @@ export type FunctionTypes = typeutil.depromisify<
   ReturnType<typeof getFunctions>
 >;
 
-export const getFunctions = async (
-  cxn: Executor,
-  _params: {version: Version}
-) => {
+export const getFunctions = async (cxn: Executor) => {
   const functionsJson = await cxn.queryJSON(`
     with module schema
     select Function {
