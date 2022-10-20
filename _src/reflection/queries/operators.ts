@@ -1,12 +1,12 @@
 import {Executor} from "../../ifaces.ts";
 import {StrictMap} from "../strictMap.ts";
 
-import {Param, replaceNumberTypes, Typemod} from "./getFunctions.ts";
-import {genutil, typeutil} from "../util/util.ts";
+import {FuncopParam, replaceNumberTypes, FuncopTypemod} from "./functions.ts";
+import {util} from "../util.ts";
+import {typeutil} from "../typeutil.ts";
 import {OperatorKind} from "../enums.ts";
-import type {Version} from "../generate.ts";
 
-export type {Typemod};
+export type {FuncopTypemod};
 
 export interface OperatorDef {
   id: string;
@@ -15,18 +15,15 @@ export interface OperatorDef {
   operator_kind: OperatorKind;
   description?: string;
   return_type: {id: string; name: string};
-  return_typemod: Typemod;
-  params: Param[];
+  return_typemod: FuncopTypemod;
+  params: FuncopParam[];
 }
 
 export type OperatorTypes = typeutil.depromisify<
-  ReturnType<typeof getOperators>
+  ReturnType<typeof _operators>
 >;
 
-export const getOperators = async (
-  cxn: Executor,
-  _params: {version: Version}
-) => {
+const _operators = async (cxn: Executor) => {
   const operatorsJson = await cxn.queryJSON(`
     with module schema
     select Operator {
@@ -61,7 +58,7 @@ export const getOperators = async (
       continue;
     }
 
-    const {mod} = genutil.splitName(op.name);
+    const {mod} = util.splitName(op.name);
 
     const name = `${mod}::${identifier}`;
 
@@ -77,7 +74,7 @@ export const getOperators = async (
       description: op.annotations.find(
         (anno: any) => anno.name === "std::description"
       )?.["@value"],
-      annotations: undefined,
+      annotations: undefined
     };
 
     replaceNumberTypes(opDef);
@@ -104,10 +101,12 @@ function hashOpDef(def: OperatorDef): string {
           kind: param.kind,
           type: param.type.id,
           typemod: param.typemod,
-          hasDefault: !!param.hasDefault,
+          hasDefault: !!param.hasDefault
         })
       )
       .sort(),
-    operator_kind: def.operator_kind,
+    operator_kind: def.operator_kind
   });
 }
+
+export {_operators as operators};

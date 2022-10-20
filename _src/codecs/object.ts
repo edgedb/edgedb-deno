@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
 import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {ONE, AT_LEAST_ONE} from "./consts.ts";
@@ -26,7 +24,7 @@ import {
   MissingArgumentError,
   QueryArgumentError,
   UnknownArgumentError,
-  ProtocolError,
+  ProtocolError
 } from "../errors/index.ts";
 
 const EDGE_POINTER_IS_IMPLICIT = 1 << 0;
@@ -36,6 +34,7 @@ export interface ObjectFieldInfo {
   name: string;
   implicit: boolean;
   linkprop: boolean;
+  cardinality: number;
 }
 
 export class ObjectCodec extends Codec implements ICodec {
@@ -66,6 +65,7 @@ export class ObjectCodec extends Codec implements ICodec {
         name,
         implicit: !!(flags[i] & EDGE_POINTER_IS_IMPLICIT),
         linkprop: isLinkprop,
+        cardinality: cards[i]
       };
       this.namesSet.add(name);
     }
@@ -75,14 +75,14 @@ export class ObjectCodec extends Codec implements ICodec {
     throw new InvalidArgumentError("Objects cannot be passed as arguments");
   }
 
-  encodeArgs(args: any): Buffer {
+  encodeArgs(args: any): Uint8Array {
     if (this.fields[0].name === "0") {
       return this._encodePositionalArgs(args);
     }
     return this._encodeNamedArgs(args);
   }
 
-  _encodePositionalArgs(args: any): Buffer {
+  _encodePositionalArgs(args: any): Uint8Array {
     if (!Array.isArray(args)) {
       throw new InvalidArgumentError("an array of arguments was expected");
     }
@@ -124,7 +124,7 @@ export class ObjectCodec extends Codec implements ICodec {
     return buf.unwrap();
   }
 
-  _encodeNamedArgs(args: any): Buffer {
+  _encodeNamedArgs(args: any): Uint8Array {
     if (args == null) {
       throw new MissingArgumentError(
         "One or more named arguments expected, received null"

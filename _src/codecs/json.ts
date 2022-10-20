@@ -16,13 +16,13 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
+import {ReadBuffer, WriteBuffer, utf8Encoder} from "../primitives/buffer.ts";
 import {ICodec, ScalarCodec} from "./ifaces.ts";
 import {InvalidArgumentError, ProtocolError} from "../errors/index.ts";
 
 export class JSONCodec extends ScalarCodec implements ICodec {
+  tsType = "unknown";
+
   encode(buf: WriteBuffer, object: any): void {
     let val: string;
     try {
@@ -40,7 +40,7 @@ export class JSONCodec extends ScalarCodec implements ICodec {
       );
     }
 
-    const strbuf = Buffer.from(val, "utf8");
+    const strbuf = utf8Encoder.encode(val);
     buf.writeInt32(strbuf.length + 1);
     buf.writeChar(1); // JSON format version
     buf.writeBuffer(strbuf);
@@ -61,7 +61,7 @@ export class JSONStringCodec extends ScalarCodec implements ICodec {
       throw new InvalidArgumentError(`a string was expected, got "${object}"`);
     }
 
-    const strbuf = Buffer.from(object, "utf8");
+    const strbuf = utf8Encoder.encode(object);
     buf.writeInt32(strbuf.length + 1);
     buf.writeChar(1); // JSON format version
     buf.writeBuffer(strbuf);

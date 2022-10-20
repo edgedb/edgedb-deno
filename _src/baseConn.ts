@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./globals.deno.ts";
-
 import {INVALID_CODEC, NullCodec, NULL_CODEC} from "./codecs/codecs.ts";
 import {ICodec, uuid} from "./codecs/ifaces.ts";
 import {NamedTupleCodec} from "./codecs/namedtuple.ts";
@@ -34,13 +32,14 @@ import {
   QueryOptions,
   ProtocolVersion,
   QueryArgs,
-  ServerSettings,
+  ServerSettings
 } from "./ifaces.ts";
 import {
   ReadBuffer,
   ReadMessageBuffer,
+  utf8Decoder,
   WriteBuffer,
-  WriteMessageBuffer,
+  WriteMessageBuffer
 } from "./primitives/buffer.ts";
 import * as chars from "./primitives/chars.ts";
 import Event from "./primitives/event.ts";
@@ -55,7 +54,7 @@ enum TransactionStatus {
   TRANS_ACTIVE = 1, // command in progress
   TRANS_INTRANS = 2, // idle, within transaction block
   TRANS_INERROR = 3, // idle, within failed transaction
-  TRANS_UNKNOWN = 4, // cannot determine status
+  TRANS_UNKNOWN = 4 // cannot determine status
 }
 
 export enum Capabilities {
@@ -66,16 +65,16 @@ export enum Capabilities {
   // transaction or savepoint manipulation
   DDL = 0b01000, // query contains DDL
   PERSISTENT_CONFIG = 0b10000, // server or database config change
-  ALL = 0xffff_ffff,
+  ALL = 0xffff_ffff
 }
 
 const NO_TRANSACTION_CAPABILITIES =
   (Capabilities.ALL & ~Capabilities.TRANSACTION) >>> 0;
 
-const NO_TRANSACTION_CAPABILITIES_BYTES = Buffer.alloc(8, 0xff);
-NO_TRANSACTION_CAPABILITIES_BYTES.writeUInt32BE(
-  NO_TRANSACTION_CAPABILITIES,
-  4
+const NO_TRANSACTION_CAPABILITIES_BYTES = new Uint8Array(Array(8).fill(255));
+new DataView(NO_TRANSACTION_CAPABILITIES_BYTES.buffer).setUint32(
+  4,
+  NO_TRANSACTION_CAPABILITIES
 );
 
 const RESTRICTED_CAPABILITIES =
@@ -87,13 +86,26 @@ const RESTRICTED_CAPABILITIES =
 enum CompilationFlag {
   INJECT_OUTPUT_TYPE_IDS = 1 << 0,
   INJECT_OUTPUT_TYPE_NAMES = 1 << 1,
-  INJECT_OUTPUT_OBJECT_IDS = 1 << 2,
+  INJECT_OUTPUT_OBJECT_IDS = 1 << 2
 }
 
 const OLD_ERROR_CODES = new Map([
   [0x05_03_00_01, 0x05_03_01_01], // TransactionSerializationError #2431
-  [0x05_03_00_02, 0x05_03_01_02], // TransactionDeadlockError      #2431
+  [0x05_03_00_02, 0x05_03_01_02] // TransactionDeadlockError      #2431
 ]);
+
+export type ParseResult = [
+  Cardinality,
+  ICodec,
+  ICodec,
+  number,
+  Uint8Array | null,
+  Uint8Array | null
+];
+
+export type connConstructor = new (
+  registry: CodecsRegistry
+) => BaseRawConnection;
 
 export class BaseRawConnection {
   protected connected: boolean = false;
@@ -104,7 +116,7 @@ export class BaseRawConnection {
   protected codecsRegistry: CodecsRegistry;
   protected queryCodecCache: LRU<string, [number, ICodec, ICodec, number]>;
 
-  protected serverSecret: Buffer | null;
+  protected serverSecret: Uint8Array | null;
   /** @internal */ serverSettings: ServerSettings;
   private serverXactStatus: TransactionStatus;
 
@@ -120,7 +132,7 @@ export class BaseRawConnection {
   isLegacyProtocol = false;
 
   protected stateCodec: ICodec = INVALID_CODEC;
-  protected stateCache: [Session, Buffer] | null = null;
+  protected stateCache: [Session, Uint8Array] | null = null;
 
   /** @internal */
   protected constructor(registry: CodecsRegistry) {
@@ -150,7 +162,7 @@ export class BaseRawConnection {
     this.throwNotImplemented("_waitForMessage");
   }
 
-  protected _sendData(data: Buffer): void {
+  protected _sendData(data: Uint8Array): void {
     this.throwNotImplemented("_sendData");
   }
 
@@ -188,8 +200,8 @@ export class BaseRawConnection {
     this.messageWaiter = null;
   }
 
-  protected _parseHeaders(): Map<number, Buffer> {
-    const ret = new Map<number, Buffer>();
+  protected _parseHeaders(): Map<number, Uint8Array> {
+    const ret = new Map<number, Uint8Array>();
     let numFields = this.buffer.readInt16();
     while (numFields) {
       const key = this.buffer.readInt16();
@@ -205,15 +217,18 @@ export class BaseRawConnection {
     ICodec,
     ICodec,
     number,
-    Buffer,
-    Buffer
+    Uint8Array,
+    Uint8Array
   ] {
     let capabilities = -1;
     if (this.isLegacyProtocol) {
       const headers = this._parseHeaders();
       if (headers.has(LegacyHeaderCodes.capabilities)) {
+        const buf = headers.get(LegacyHeaderCodes.capabilities)!;
         capabilities = Number(
-          headers.get(LegacyHeaderCodes.capabilities)!.readBigInt64BE()
+          new DataView(buf.buffer, buf.byteOffset, buf.byteLength).getBigInt64(
+            0
+          )
         );
       }
     } else {
@@ -253,7 +268,7 @@ export class BaseRawConnection {
       outCodec,
       capabilities,
       inTypeData,
-      outTypeData,
+      outTypeData
     ];
   }
 
@@ -339,11 +354,11 @@ export class BaseRawConnection {
     }
   }
 
-  private _parseServerSettings(name: string, value: Buffer): void {
+  private _parseServerSettings(name: string, value: Uint8Array): void {
     switch (name) {
       case "suggested_pool_concurrency": {
         this.serverSettings.suggested_pool_concurrency = parseInt(
-          value.toString("utf8"),
+          utf8Decoder.decode(value),
           10
         );
         break;
@@ -426,7 +441,9 @@ export class BaseRawConnection {
     query: string,
     outputFormat: OutputFormat,
     expectOne: boolean
-  ): Promise<[number, ICodec, ICodec, number, Buffer | null, Buffer | null]> {
+  ): Promise<
+    [number, ICodec, ICodec, number, Uint8Array | null, Uint8Array | null]
+  > {
     const wb = new WriteMessageBuffer();
     const parseSendsTypeData = versionGreaterThanOrEqual(
       this.protocolVersion,
@@ -436,7 +453,7 @@ export class BaseRawConnection {
     wb.beginMessage(chars.$P)
       .writeLegacyHeaders({
         explicitObjectids: "true",
-        allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES,
+        allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES
       })
       .writeChar(outputFormat)
       .writeChar(expectOne ? Cardinality.AT_MOST_ONE : Cardinality.MANY);
@@ -457,8 +474,8 @@ export class BaseRawConnection {
     let capabilities: number = -1;
     let parsing = true;
     let error: Error | null = null;
-    let inCodecData: Buffer | null = null;
-    let outCodecData: Buffer | null = null;
+    let inCodecData: Uint8Array | null = null;
+    let outCodecData: Uint8Array | null = null;
 
     while (parsing) {
       if (!this.buffer.takeMessage()) {
@@ -471,8 +488,13 @@ export class BaseRawConnection {
         case chars.$1: {
           const headers = this._parseHeaders();
           if (headers.has(LegacyHeaderCodes.capabilities)) {
+            const buf = headers.get(LegacyHeaderCodes.capabilities)!;
             capabilities = Number(
-              headers.get(LegacyHeaderCodes.capabilities)!.readBigInt64BE()
+              new DataView(
+                buf.buffer,
+                buf.byteOffset,
+                buf.byteLength
+              ).getBigInt64(0)
             );
           }
           cardinality = this.buffer.readChar();
@@ -567,7 +589,7 @@ export class BaseRawConnection {
                 outCodec,
                 capabilities,
                 inCodecData,
-                outCodecData,
+                outCodecData
               ] = this._parseDescribeTypeMessage();
             } catch (e: any) {
               error = e;
@@ -608,11 +630,11 @@ export class BaseRawConnection {
       outCodec,
       capabilities,
       inCodecData,
-      outCodecData,
+      outCodecData
     ];
   }
 
-  private _encodeArgs(args: QueryArgs, inCodec: ICodec): Buffer {
+  private _encodeArgs(args: QueryArgs, inCodec: ICodec): Uint8Array {
     if (versionGreaterThanOrEqual(this.protocolVersion, [0, 12])) {
       if (inCodec === NULL_CODEC) {
         if (args != null) {
@@ -662,7 +684,7 @@ export class BaseRawConnection {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$E)
       .writeLegacyHeaders({
-        allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES,
+        allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES
       })
       .writeString("") // statement name
       .writeBuffer(this._encodeArgs(args, inCodec))
@@ -739,7 +761,7 @@ export class BaseRawConnection {
     wb.beginMessage(chars.$O);
     wb.writeLegacyHeaders({
       explicitObjectids: "true",
-      allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES,
+      allowCapabilities: NO_TRANSACTION_CAPABILITIES_BYTES
     });
     wb.writeChar(outputFormat);
     wb.writeChar(expectOne ? Cardinality.AT_MOST_ONE : Cardinality.MANY);
@@ -804,7 +826,7 @@ export class BaseRawConnection {
               newCard,
               inCodec,
               outCodec,
-              capabilities,
+              capabilities
             ]);
             reExec = true;
           } catch (e: any) {
@@ -890,16 +912,14 @@ export class BaseRawConnection {
     }
   }
 
-  private async _parse(
+  async _parse(
     query: string,
     outputFormat: OutputFormat,
     expectedCardinality: Cardinality,
     state: Session,
     privilegedMode: boolean = false,
     options?: QueryOptions
-  ): Promise<
-    [Cardinality, ICodec, ICodec, number, Buffer | null, Buffer | null]
-  > {
+  ): Promise<ParseResult> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$P);
     wb.writeUInt16(0); // no headers
@@ -925,8 +945,8 @@ export class BaseRawConnection {
     let capabilities = -1;
     let inCodec: ICodec | null = null;
     let outCodec: ICodec | null = null;
-    let inCodecBuf: Buffer | null = null;
-    let outCodecBuf: Buffer | null = null;
+    let inCodecBuf: Uint8Array | null = null;
+    let outCodecBuf: Uint8Array | null = null;
 
     while (parsing) {
       if (!this.buffer.takeMessage()) {
@@ -944,7 +964,7 @@ export class BaseRawConnection {
               outCodec,
               capabilities,
               inCodecBuf,
-              outCodecBuf,
+              outCodecBuf
             ] = this._parseDescribeTypeMessage();
             const key = this._getQueryCacheKey(
               query,
@@ -955,7 +975,7 @@ export class BaseRawConnection {
               newCard,
               inCodec,
               outCodec,
-              capabilities,
+              capabilities
             ]);
           } catch (e: any) {
             error = e;
@@ -1004,7 +1024,7 @@ export class BaseRawConnection {
       outCodec!,
       capabilities,
       inCodecBuf,
-      outCodecBuf,
+      outCodecBuf
     ];
   }
 
@@ -1097,7 +1117,7 @@ export class BaseRawConnection {
               newCard,
               newInCodec,
               newOutCodec,
-              capabilities,
+              capabilities
             ]);
             outCodec = newOutCodec;
           } catch (e: any) {
@@ -1347,7 +1367,7 @@ export class BaseRawConnection {
       .writeLegacyHeaders({
         allowCapabilities: !allowTransactionCommands
           ? NO_TRANSACTION_CAPABILITIES_BYTES
-          : undefined,
+          : undefined
       })
       .writeString(query) // statement name
       .endMessage();
@@ -1434,7 +1454,9 @@ export class BaseRawConnection {
     query: string,
     state: Session,
     options?: QueryOptions
-  ): Promise<[ICodec, ICodec, Buffer, Buffer, ProtocolVersion, number]> {
+  ): Promise<
+    [ICodec, ICodec, Uint8Array, Uint8Array, ProtocolVersion, number]
+  > {
     const result = (await this._parse(
       query,
       OutputFormat.BINARY,
@@ -1449,7 +1471,7 @@ export class BaseRawConnection {
       result[4]!,
       result[5]!,
       this.protocolVersion,
-      result[3],
+      result[3]
     ];
   }
 
@@ -1460,7 +1482,7 @@ export class BaseRawConnection {
     options?: QueryOptions,
     inCodec?: ICodec,
     args: QueryArgs = null
-  ): Promise<Buffer> {
+  ): Promise<Uint8Array> {
     const result = new WriteBuffer();
     await this._executeFlow(
       query,

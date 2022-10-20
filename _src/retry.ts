@@ -16,26 +16,32 @@
  * limitations under the License.
  */
 
-import {hrTime} from "./adapter.deno.ts";
+import {BaseRawConnection} from "./baseConn.ts";
 import {CodecsRegistry} from "./codecs/registry.ts";
-import {NormalizedConnectConfig} from "./conUtils.ts";
+import {Address, NormalizedConnectConfig} from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
-import {RawConnection} from "./rawConn.ts";
 import {sleep} from "./utils.ts";
+
+export type ConnectWithTimeout = (
+  addr: Address,
+  config: NormalizedConnectConfig,
+  registry: CodecsRegistry
+) => Promise<BaseRawConnection>;
 
 let lastLoggingAt = 0;
 
 export async function retryingConnect(
+  connectWithTimeout: ConnectWithTimeout,
   config: NormalizedConnectConfig,
   registry: CodecsRegistry
-): Promise<RawConnection> {
+): Promise<BaseRawConnection> {
   const maxTime =
     config.connectionParams.waitUntilAvailable === 0
       ? 0
-      : hrTime() + config.connectionParams.waitUntilAvailable;
+      : Date.now() + config.connectionParams.waitUntilAvailable;
   while (true) {
     try {
-      return await RawConnection.connectWithTimeout(
+      return await connectWithTimeout(
         config.connectionParams.address,
         config,
         registry
@@ -43,7 +49,7 @@ export async function retryingConnect(
     } catch (e) {
       if (e instanceof errors.ClientConnectionError) {
         if (e.hasTag(errors.SHOULD_RECONNECT)) {
-          const now = hrTime();
+          const now = Date.now();
           if (now > maxTime) {
             throw e;
           }
@@ -55,7 +61,7 @@ export async function retryingConnect(
             const logMsg = [
               `A client connection error occurred; reconnecting because ` +
                 `of "waitUntilAvailable=${config.connectionParams.waitUntilAvailable}".`,
-              e,
+              e
             ];
 
             if (config.inProject && !config.fromProject && !config.fromEnv) {

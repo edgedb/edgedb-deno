@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
 import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
 import {BoolCodec} from "./boolean.ts";
 import {ICodec, uuid, Codec, CodecKind} from "./ifaces.ts";
@@ -26,7 +24,7 @@ import {
   Int32Codec,
   Int64Codec,
   Float32Codec,
-  Float64Codec,
+  Float64Codec
 } from "./numbers.ts";
 import {BigIntCodec} from "./numerics.ts";
 import {StrCodec} from "./text.ts";
@@ -40,7 +38,7 @@ import {
   LocalTimeCodec,
   DurationCodec,
   RelativeDurationCodec,
-  DateDurationCodec,
+  DateDurationCodec
 } from "./datetime.ts";
 import {ConfigMemoryCodec} from "./memory.ts";
 import {InternalClientError} from "../errors/index.ts";
@@ -50,7 +48,7 @@ import {INVALID_CODEC_ID, KNOWN_TYPENAMES, NULL_CODEC_ID} from "./consts.ts";
 ///////////////////////////////////////////////////////////////////////////////
 
 export class NullCodec extends Codec implements ICodec {
-  static BUFFER: Buffer = new WriteBuffer().writeInt32(0).unwrap();
+  static BUFFER: Uint8Array = new WriteBuffer().writeInt32(0).unwrap();
   encode(_buf: WriteBuffer, _object: any): void {
     throw new InternalClientError("null codec cannot used to encode data");
   }

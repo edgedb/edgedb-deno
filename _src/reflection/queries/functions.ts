@@ -1,18 +1,20 @@
 import {Executor} from "../../ifaces.ts";
 import {StrictMap} from "../strictMap.ts";
-import {typeutil} from "../index.ts";
-import {typeMapping} from "./getTypes.ts";
-import type {Version} from "../generate.ts";
+import type {typeutil} from "../typeutil.ts";
+import {typeMapping} from "./types.ts";
 
-export type Typemod = "SetOfType" | "OptionalType" | "SingletonType";
+export type FuncopTypemod = "SetOfType" | "OptionalType" | "SingletonType";
 
-export type ParamKind = "VariadicParam" | "NamedOnlyParam" | "PositionalParam";
+export type FunctionParamKind =
+  | "VariadicParam"
+  | "NamedOnlyParam"
+  | "PositionalParam";
 
-export interface Param {
+export interface FuncopParam {
   name: string;
   type: {id: string; name: string};
-  kind: ParamKind;
-  typemod: Typemod;
+  kind: FunctionParamKind;
+  typemod: FuncopTypemod;
   hasDefault?: boolean;
 }
 
@@ -21,19 +23,14 @@ export interface FunctionDef {
   name: string;
   description?: string;
   return_type: {id: string; name: string};
-  return_typemod: Typemod;
-  params: Param[];
+  return_typemod: FuncopTypemod;
+  params: FuncopParam[];
   preserves_optionality: boolean;
 }
 
-export type FunctionTypes = typeutil.depromisify<
-  ReturnType<typeof getFunctions>
->;
+export type FunctionTypes = typeutil.depromisify<ReturnType<typeof functions>>;
 
-export const getFunctions = async (
-  cxn: Executor,
-  _params: {version: Version}
-) => {
+export const functions = async (cxn: Executor) => {
   const functionsJson = await cxn.queryJSON(`
     with module schema
     select Function {
@@ -56,19 +53,19 @@ export const getFunctions = async (
     } filter .internal = false
   `);
 
-  const functions = new StrictMap<string, FunctionDef[]>();
+  const functionMap = new StrictMap<string, FunctionDef[]>();
 
   const seenFuncDefHashes = new Set<string>();
 
   for (const func of JSON.parse(functionsJson)) {
     const {name} = func;
-    if (!functions.has(name)) {
-      functions.set(name, []);
+    if (!functionMap.has(name)) {
+      functionMap.set(name, []);
     }
 
     const funcDef: FunctionDef = {
       ...func,
-      description: func.annotations[0]?.["@value"],
+      description: func.annotations[0]?.["@value"]
     };
 
     replaceNumberTypes(funcDef);
@@ -76,23 +73,23 @@ export const getFunctions = async (
     const hash = hashFuncDef(funcDef);
 
     if (!seenFuncDefHashes.has(hash)) {
-      functions.get(name).push(funcDef);
+      functionMap.get(name).push(funcDef);
       seenFuncDefHashes.add(hash);
     }
   }
 
-  return functions;
+  return functionMap;
 };
 
 export function replaceNumberTypes(def: {
   return_type: FunctionDef["return_type"];
-  params: Param[];
+  params: FuncopParam[];
 }): void {
   if (typeMapping.has(def.return_type.id)) {
     const type = typeMapping.get(def.return_type.id)!;
     def.return_type = {
       id: type.id,
-      name: type.name,
+      name: type.name
     };
   }
 
@@ -101,7 +98,7 @@ export function replaceNumberTypes(def: {
       const type = typeMapping.get(param.type.id)!;
       param.type = {
         id: type.id,
-        name: type.name,
+        name: type.name
       };
     }
   }
@@ -118,10 +115,10 @@ function hashFuncDef(def: FunctionDef): string {
           kind: param.kind,
           type: param.type.id,
           typemod: param.typemod,
-          hasDefault: !!param.hasDefault,
+          hasDefault: !!param.hasDefault
         })
       )
       .sort(),
-    preserves_optionality: def.preserves_optionality,
+    preserves_optionality: def.preserves_optionality
   });
 }

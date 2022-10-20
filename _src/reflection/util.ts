@@ -1,10 +1,21 @@
-export {cardinalityUtil} from "./cardinalityUtil.ts";
-export type {typeutil} from "./typeutil.ts";
-export * as genutil from "./genutil.ts";
-
 export namespace util {
   export function assertNever(arg: never, error?: Error): never {
     throw error ?? new Error(`${arg} is supposed to be of "never" type`);
+  }
+
+  export function splitName(name: string) {
+    if (!name.includes("::")) throw new Error(`Invalid FQN ${name}`);
+    return {
+      mod: name.split("::")[0],
+      name: name.split("::")[1]
+    };
+  }
+
+  export function toIdent(name: string): string {
+    if (name.includes("::")) {
+      throw new Error(`toIdent: invalid name ${name}`);
+    }
+    return name.replace(/([^a-zA-Z0-9_]+)/g, "_");
   }
 
   export const deduplicate = (args: string[]) => [...new Set(args)];
@@ -36,7 +47,7 @@ export namespace util {
   ): T => {
     return Object.defineProperty(obj, name, {
       get: getter,
-      enumerable: true,
+      enumerable: true
     }) as any;
   };
 

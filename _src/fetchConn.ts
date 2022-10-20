@@ -16,21 +16,20 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./globals.deno.ts";
-
 import {CodecsRegistry} from "./codecs/registry.ts";
-import {Address} from "./conUtils.ts";
+import {Address, NormalizedConnectConfig} from "./conUtils.ts";
 import {PROTO_VER, BaseRawConnection} from "./baseConn.ts";
 import Event from "./primitives/event.ts";
 import * as chars from "./primitives/chars.ts";
 import {InternalClientError, ProtocolError} from "./errors/index.ts";
+import {HTTPSCRAMAuth} from "./httpScram.ts";
 
 // @ts-ignore
-if (typeof fetch === "undefined") {
-  // Pre 17.5 NodeJS environment.
-  // @ts-ignore
-  globalThis.fetch = require("node-fetch"); // tslint:disable-line
-}
+// if (typeof fetch === "undefined") {
+// Pre 17.5 NodeJS environment.
+// @ts-ignore
+//   globalThis.fetch = require("node-fetch"); // tslint:disable-line
+// }
 
 interface FetchConfig {
   address: Address | string;
@@ -69,7 +68,7 @@ class BaseFetchConnection extends BaseRawConnection {
     await this.messageWaiter.wait();
   }
 
-  protected async __sendData(data: Buffer): Promise<void> {
+  protected async __sendData(data: Uint8Array): Promise<void> {
     if (this.buffer.takeMessage()) {
       const mtype = this.buffer.getMessageType();
       throw new InternalClientError(
@@ -97,10 +96,13 @@ class BaseFetchConnection extends BaseRawConnection {
         headers.Authorization = `Bearer ${this.config.token}`;
       }
 
-      const resp: any = await fetch(this.addr, {
+      const FETCH =
+        // @ts-ignore
+        typeof fetch === "undefined" ? require("node-fetch") : fetch;
+      const resp = await FETCH(this.addr, {
         method: "post",
         body: data,
-        headers,
+        headers
       });
 
       if (!resp.ok) {
@@ -109,8 +111,8 @@ class BaseFetchConnection extends BaseRawConnection {
         );
       }
 
-      const respData: any = await resp.arrayBuffer();
-      const buf = Buffer.from(respData);
+      const respData = await resp.arrayBuffer();
+      const buf = new Uint8Array(respData);
 
       let pause = false;
       try {
@@ -134,7 +136,7 @@ class BaseFetchConnection extends BaseRawConnection {
     }
   }
 
-  protected _sendData(data: Buffer): void {
+  protected _sendData(data: Uint8Array): void {
     this.__sendData(data);
   }
 
@@ -158,5 +160,48 @@ export class AdminUIFetchConnection extends BaseFetchConnection {
         ? config.address
         : `http://${config.address[0]}:${config.address[1]}`
     }/db/${config.database}`;
+  }
+}
+
+const _tokens = new WeakMap<NormalizedConnectConfig, string>();
+
+export class FetchConnection extends BaseFetchConnection {
+  protected _buildAddr(): string {
+    const config = this.config;
+
+    return `${
+      typeof config.address === "string"
+        ? config.address
+        : `http://${config.address[0]}:${config.address[1]}`
+    }/db/${config.database}`;
+  }
+
+  static async connectWithTimeout(
+    addr: Address,
+    config: NormalizedConnectConfig,
+    registry: CodecsRegistry
+  ): Promise<FetchConnection> {
+    if (!_tokens.has(config)) {
+      const token = await HTTPSCRAMAuth(
+        `http://${addr[0]}:${addr[1]}`,
+        config.connectionParams.user,
+        config.connectionParams.password ?? ""
+      );
+      _tokens.set(config, token);
+    }
+
+    const conn = new FetchConnection(
+      {
+        address: addr,
+        database: config.connectionParams.database,
+        user: config.connectionParams.user,
+        token: _tokens.get(config)!
+      },
+      registry
+    );
+
+    conn.connected = true;
+
+    return conn;
   }
 }

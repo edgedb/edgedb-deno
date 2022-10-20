@@ -1,7 +1,6 @@
 import {Executor} from "../../ifaces.ts";
-import type {Version} from "../generate.ts";
-import {typeutil} from "../util/typeutil.ts";
-import {typeMapping} from "./getTypes.ts";
+import type {typeutil} from "../typeutil.ts";
+import {typeMapping} from "./types.ts";
 
 type Cast = {
   id: string;
@@ -29,12 +28,9 @@ const reachableFrom: (
   return [...reachable];
 };
 
-export type Casts = typeutil.depromisify<ReturnType<typeof getCasts>>;
+export type Casts = typeutil.depromisify<ReturnType<typeof casts>>;
 
-export const getCasts = async (
-  cxn: Executor,
-  params: {version: Version; debug?: boolean}
-) => {
+export const casts = async (cxn: Executor, params?: {debug?: boolean}) => {
   const allCastsRaw = await cxn.queryJSON(`WITH MODULE schema
         SELECT Cast {
             id,
@@ -160,6 +156,6 @@ export const getCasts = async (
     implicitCastMap,
     implicitCastFromMap,
     assignmentCastMap,
-    assignableByMap,
+    assignableByMap
   };
 };

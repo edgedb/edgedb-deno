@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-import {Buffer} from "./globals.deno.ts";
-
 import * as chars from "./primitives/chars.ts";
 import {
   LocalDate,
@@ -25,7 +23,7 @@ import {
   LocalTime,
   Duration,
   RelativeDuration,
-  DateDuration,
+  DateDuration
 } from "./datatypes/datetime.ts";
 import {ConfigMemory} from "./datatypes/memory.ts";
 
@@ -34,7 +32,7 @@ export type ProtocolVersion = [number, number];
 export enum OutputFormat {
   BINARY = chars.$b,
   JSON = chars.$j,
-  NONE = chars.$n,
+  NONE = chars.$n
 }
 
 export enum Cardinality {
@@ -42,7 +40,7 @@ export enum Cardinality {
   AT_MOST_ONE = chars.$o,
   ONE = chars.$A,
   MANY = chars.$m,
-  AT_LEAST_ONE = chars.$M,
+  AT_LEAST_ONE = chars.$M
 }
 type SerializablePrimitives =
   | string
@@ -64,7 +62,7 @@ type QueryArgPrimitive =
   | boolean
   | Serializable
   | BigInt
-  | Buffer
+  | Uint8Array
   | Date
   | LocalDateTime
   | LocalDate
@@ -97,7 +95,7 @@ export interface KnownServerSettings {
 }
 
 export type ServerSettings = KnownServerSettings & {
-  [key: string]: Buffer;
+  [key: string]: Uint8Array;
 };
 
 export const LegacyHeaderCodes = {
@@ -106,7 +104,7 @@ export const LegacyHeaderCodes = {
   implicitTypeids: 0xff03,
   allowCapabilities: 0xff04,
   capabilities: 0x1001,
-  explicitObjectids: 0xff05,
+  explicitObjectids: 0xff05
 };
 
 export interface QueryOptions {

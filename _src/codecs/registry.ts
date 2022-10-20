@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
-import {ReadBuffer} from "../primitives/buffer.ts";
+import {ReadBuffer, utf8Decoder} from "../primitives/buffer.ts";
 import LRU from "../primitives/lru.ts";
 import {ICodec, uuid, ScalarCodec} from "./ifaces.ts";
 import {NULL_CODEC, SCALAR_CODECS} from "./codecs.ts";
@@ -80,7 +78,7 @@ export class CodecsRegistry {
     decimal_string,
     int64_bigint,
     datetime_localDatetime,
-    json_string,
+    json_string
   }: CustomCodecSpec = {}): void {
     // This is a private API and it will change in the future.
 
@@ -146,7 +144,7 @@ export class CodecsRegistry {
     return null;
   }
 
-  buildCodec(spec: Buffer, protocolVersion: ProtocolVersion): ICodec {
+  buildCodec(spec: Uint8Array, protocolVersion: ProtocolVersion): ICodec {
     const frb = new ReadBuffer(spec);
     const codecsList: ICodec[] = [];
     let codec: ICodec | null = null;
@@ -257,7 +255,7 @@ export class CodecsRegistry {
           if (t >= 0x7f && t <= 0xff) {
             const ann_length = frb.readUInt32();
             if (t === 0xff) {
-              const typeName = frb.readBuffer(ann_length).toString("utf8");
+              const typeName = utf8Decoder.decode(frb.readBuffer(ann_length));
               const codec =
                 this.codecs.get(tid) ?? this.codecsBuildCache.get(tid);
               if (codec instanceof ScalarCodec) {
@@ -324,8 +322,7 @@ export class CodecsRegistry {
             card = 0;
           }
 
-          const strLen = frb.readUInt32();
-          const name = frb.readBuffer(strLen).toString("utf8");
+          const name = frb.readString();
 
           const pos = frb.readUInt16();
           const subCodec = cl[pos];
@@ -422,8 +419,7 @@ export class CodecsRegistry {
         const codecs = new Array(els);
         const names = new Array(els);
         for (let i = 0; i < els; i++) {
-          const strLen = frb.readUInt32();
-          names[i] = frb.readBuffer(strLen).toString("utf8");
+          names[i] = frb.readString();
 
           const pos = frb.readUInt16();
           const subCodec = cl[pos];
@@ -444,10 +440,11 @@ export class CodecsRegistry {
            simple strings.
         */
         const els = frb.readUInt16();
+        const values: string[] = [];
         for (let i = 0; i < els; i++) {
-          frb.discard(frb.readUInt32());
+          values.push(frb.readString());
         }
-        res = new EnumCodec(tid);
+        res = new EnumCodec(tid, null, values);
         break;
       }
 

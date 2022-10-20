@@ -1,7 +1,6 @@
 import {Executor} from "../../ifaces.ts";
-import type {Version} from "../generate.ts";
 import {StrictMap} from "../strictMap.ts";
-import {typeutil} from "../util/typeutil.ts";
+import type {typeutil} from "../typeutil.ts";
 
 /*
   for scalars
@@ -19,12 +18,9 @@ import {typeutil} from "../util/typeutil.ts";
     generate declarationd
  */
 
-export type ScalarTypes = typeutil.depromisify<ReturnType<typeof getScalars>>;
+export type ScalarTypes = typeutil.depromisify<ReturnType<typeof _scalars>>;
 
-export const getScalars = async (
-  cxn: Executor,
-  _params: {version: Version}
-) => {
+const _scalars = async (cxn: Executor) => {
   const scalarArray = await cxn.queryJSON(`with module schema
 select InheritingObject {
   id,
@@ -93,3 +89,4 @@ FILTER
   // return castsFrom;
   // // return castsResult;
 };
+export {_scalars as scalars};

@@ -1,28 +1,27 @@
 import {Executor} from "../../ifaces.ts";
 import {Cardinality} from "../enums.ts";
-import type {Version} from "../generate.ts";
+import type {UUID} from "./queryTypes.ts";
 import {StrictMap} from "../strictMap.ts";
 
-export type UUID = string;
-
-export type GlobalType = {
+export type Global = {
   id: UUID;
   name: string;
   has_default: boolean;
   target_id: UUID;
-  real_cardinality: Cardinality;
+  card: Cardinality;
 };
 
-export type Globals = StrictMap<UUID, GlobalType>;
+export type Globals = StrictMap<UUID, Global>;
 
-export async function getGlobals(
-  cxn: Executor,
-  params: {version: Version}
-): Promise<Globals> {
+export async function globals(cxn: Executor): Promise<Globals> {
   const globalsMap = new Map();
-  if (params.version.major < 2) {
+  const version = await cxn.queryRequiredSingle<number>(
+    `select sys::get_version().major;`
+  );
+  if (version === 1) {
     return globalsMap;
   }
+
   const QUERY = `
     WITH
       MODULE schema
@@ -30,7 +29,7 @@ export async function getGlobals(
       id,
       name,
       target_id := .target.id,
-      real_cardinality := ("One" IF .required ELSE "One" IF EXISTS .default ELSE "AtMostOne")
+      card := ("One" IF .required ELSE "One" IF EXISTS .default ELSE "AtMostOne")
         IF <str>.cardinality = "One" ELSE
         ("AtLeastOne" IF .required ELSE "Many"),
       has_default := exists .default,
@@ -38,8 +37,8 @@ export async function getGlobals(
     ORDER BY .name;
   `;
 
-  const globals: GlobalType[] = JSON.parse(await cxn.queryJSON(QUERY));
-  for (const g of globals) {
+  const allGlobals: Global[] = JSON.parse(await cxn.queryJSON(QUERY));
+  for (const g of allGlobals) {
     globalsMap.set(g.id, g);
   }
 

@@ -19,9 +19,9 @@
 import type {Duration} from "./datatypes/datetime.ts";
 import {CodecsRegistry} from "./codecs/registry.ts";
 import {
+  ConnectArgumentsParser,
   ConnectConfig,
-  NormalizedConnectConfig,
-  parseConnectArguments,
+  NormalizedConnectConfig
 } from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
 import {Cardinality, Executor, OutputFormat, QueryArgs} from "./ifaces.ts";
@@ -31,22 +31,22 @@ import {
   Session,
   SimpleRetryOptions,
   SimpleTransactionOptions,
-  TransactionOptions,
+  TransactionOptions
 } from "./options.ts";
 import Event from "./primitives/event.ts";
 import {LifoQueue} from "./primitives/queues.ts";
-import {RawConnection} from "./rawConn.ts";
-import {retryingConnect} from "./retry.ts";
+import {BaseRawConnection} from "./baseConn.ts";
+import {ConnectWithTimeout, retryingConnect} from "./retry.ts";
 import {Transaction} from "./transaction.ts";
 import {sleep} from "./utils.ts";
 
 export class ClientConnectionHolder {
-  private _pool: ClientPool;
-  private _connection: RawConnection | null;
+  private _pool: BaseClientPool;
+  private _connection: BaseRawConnection | null;
   private _options: Options | null;
   private _inUse: Event | null;
 
-  constructor(pool: ClientPool) {
+  constructor(pool: BaseClientPool) {
     this._pool = pool;
     this._connection = null;
     this._options = null;
@@ -57,7 +57,7 @@ export class ClientConnectionHolder {
     return this._options ?? Options.defaults();
   }
 
-  async _getConnection(): Promise<RawConnection> {
+  async _getConnection(): Promise<BaseRawConnection> {
     if (!this._connection || this._connection.isClosed()) {
       this._connection = await this._pool.getNewConnection();
     }
@@ -126,7 +126,7 @@ export class ClientConnectionHolder {
       try {
         result = await Promise.race([
           action(transaction),
-          transaction._waitForConnAbort(),
+          transaction._waitForConnAbort()
         ]);
         try {
           await transaction._commit();
@@ -268,7 +268,10 @@ export class ClientConnectionHolder {
   }
 }
 
-class ClientPool {
+export abstract class BaseClientPool {
+  protected abstract _connectWithTimeout: ConnectWithTimeout;
+  abstract isStateless: boolean;
+
   private _closing: Event | null;
   private _queue: LifoQueue<ClientConnectionHolder>;
   private _holders: ClientConnectionHolder[];
@@ -277,7 +280,10 @@ class ClientPool {
   private _connectConfig: ConnectConfig;
   private _codecsRegistry: CodecsRegistry;
 
-  constructor(dsn?: string, options: ConnectOptions = {}) {
+  constructor(
+    private _parseConnectArguments: ConnectArgumentsParser,
+    options: ConnectOptions
+  ) {
     this.validateClientOptions(options);
 
     this._codecsRegistry = new CodecsRegistry();
@@ -287,7 +293,7 @@ class ClientPool {
     this._userConcurrency = options.concurrency ?? null;
     this._suggestedConcurrency = null;
     this._closing = null;
-    this._connectConfig = {...options, ...(dsn !== undefined ? {dsn} : {})};
+    this._connectConfig = {...options};
 
     this._resizeHolderPool();
   }
@@ -312,7 +318,7 @@ class ClientPool {
     return {
       queueLength: this._queue.pending,
       openConnections: this._holders.filter(holder => holder.connectionOpen)
-        .length,
+        .length
     };
   }
 
@@ -360,19 +366,23 @@ class ClientPool {
   private _getNormalizedConnectConfig(): Promise<NormalizedConnectConfig> {
     return (
       this.__normalizedConnectConfig ??
-      (this.__normalizedConnectConfig = parseConnectArguments(
+      (this.__normalizedConnectConfig = this._parseConnectArguments(
         this._connectConfig
       ))
     );
   }
 
-  async getNewConnection(): Promise<RawConnection> {
+  async getNewConnection(): Promise<BaseRawConnection> {
     if (this._closing?.done) {
       throw new errors.InterfaceError("The client is closed");
     }
 
     const config = await this._getNormalizedConnectConfig();
-    const connection = await retryingConnect(config, this._codecsRegistry);
+    const connection = await retryingConnect(
+      this._connectWithTimeout,
+      config,
+      this._codecsRegistry
+    );
 
     const suggestedConcurrency =
       connection.serverSettings.suggested_pool_concurrency;
@@ -486,6 +496,8 @@ export interface ClientOptions {
   concurrency?: number;
 }
 
+export type ConnectOptions = ConnectConfig & ClientOptions;
+
 type SimpleConfig = Partial<{
   session_idle_transaction_timeout: Duration;
   query_execution_timeout: Duration;
@@ -497,17 +509,13 @@ type SimpleConfig = Partial<{
 }>;
 
 export class Client implements Executor {
-  private pool: ClientPool;
+  private pool: BaseClientPool;
   private options: Options;
 
-  private constructor(pool: ClientPool, options: Options) {
+  /** @internal */
+  constructor(pool: BaseClientPool, options: Options) {
     this.pool = pool;
     this.options = options;
-  }
-
-  /** @internal */
-  static create(dsn?: string, options?: ConnectOptions | null): Client {
-    return new Client(new ClientPool(dsn, options ?? {}), Options.defaults());
   }
 
   withTransactionOptions(
@@ -563,6 +571,11 @@ export class Client implements Executor {
   async transaction<T>(
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T> {
+    if (this.pool.isStateless) {
+      throw new errors.EdgeDBError(
+        `cannot use 'transaction()' API on HTTP client`
+      );
+    }
     const holder = await this.pool.acquireHolder(this.options);
     try {
       return await holder.transaction(action);
@@ -641,17 +654,5 @@ export class Client implements Executor {
     } finally {
       await holder.release();
     }
-  }
-}
-
-export type ConnectOptions = ConnectConfig & ClientOptions;
-
-export function createClient(
-  options?: string | ConnectOptions | null
-): Client {
-  if (typeof options === "string") {
-    return Client.create(options);
-  } else {
-    return Client.create(undefined, options);
   }
 }

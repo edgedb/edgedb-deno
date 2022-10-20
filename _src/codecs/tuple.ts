@@ -16,8 +16,6 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
 import {KNOWN_TYPENAMES} from "./consts.ts";
 
 import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces.ts";
@@ -71,7 +69,7 @@ export class TupleCodec extends Codec implements ICodec, IArgsCodec {
     buf.writeBuffer(elemBuf);
   }
 
-  encodeArgs(args: any): Buffer {
+  encodeArgs(args: any): Uint8Array {
     if (!Array.isArray(args)) {
       throw new InvalidArgumentError("an array of arguments was expected");
     }
@@ -127,7 +125,7 @@ export class TupleCodec extends Codec implements ICodec, IArgsCodec {
 }
 
 export class EmptyTupleCodec extends Codec implements ICodec {
-  static BUFFER: Buffer = new WriteBuffer()
+  static BUFFER: Uint8Array = new WriteBuffer()
     .writeInt32(4)
     .writeInt32(0)
     .unwrap();

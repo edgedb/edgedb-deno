@@ -16,9 +16,7 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
+import {ReadBuffer, WriteBuffer, uuidToBuffer} from "../primitives/buffer.ts";
 import {KNOWN_TYPES} from "./consts.ts";
 
 export type uuid = string;
@@ -35,7 +33,7 @@ export type CodecKind =
 
 export interface ICodec {
   readonly tid: uuid;
-  readonly tidBuffer: Buffer;
+  readonly tidBuffer: Uint8Array;
 
   encode(buf: WriteBuffer, object: any): void;
   decode(buf: ReadBuffer): any;
@@ -46,16 +44,16 @@ export interface ICodec {
 }
 
 export interface IArgsCodec {
-  encodeArgs(args: any): Buffer;
+  encodeArgs(args: any): Uint8Array;
 }
 
 export abstract class Codec {
   readonly tid: uuid;
-  readonly tidBuffer: Buffer;
+  readonly tidBuffer: Uint8Array;
 
   constructor(tid: uuid) {
     this.tid = tid;
-    this.tidBuffer = Buffer.from(tid, "hex");
+    this.tidBuffer = uuidToBuffer(tid);
   }
 
   getKnownTypeName(): string {
@@ -89,6 +87,9 @@ export abstract class ScalarCodec extends Codec {
   getKind(): CodecKind {
     return "scalar";
   }
+
+  readonly tsType: string = "unknown";
+  readonly importedType: boolean = false;
 
   getKnownTypeName(): string {
     if (this.typeName) {

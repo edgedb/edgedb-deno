@@ -16,20 +16,20 @@
  * limitations under the License.
  */
 
-import {Buffer} from "../globals.deno.ts";
-
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
+import {ReadBuffer, WriteBuffer, utf8Encoder} from "../primitives/buffer.ts";
 import {ICodec, ScalarCodec} from "./ifaces.ts";
 import {InvalidArgumentError} from "../errors/index.ts";
 
 export class StrCodec extends ScalarCodec implements ICodec {
+  tsType = "string";
+
   encode(buf: WriteBuffer, object: any): void {
     if (typeof object !== "string") {
       throw new InvalidArgumentError(`a string was expected, got "${object}"`);
     }
 
     const val = <string>object;
-    const strbuf = Buffer.from(val, "utf8");
+    const strbuf = utf8Encoder.encode(val);
     buf.writeInt32(strbuf.length);
     buf.writeBuffer(strbuf);
   }
