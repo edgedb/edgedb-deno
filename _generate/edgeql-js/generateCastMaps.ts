@@ -1,5 +1,5 @@
 import {CodeBuffer, dts, r, t, ts, all} from "../builders.ts";
-import type {GeneratorParams} from "../generate.ts";
+import type {GeneratorParams} from "../genutil.ts";
 import {
   getRef,
   joinFrags,
@@ -17,20 +17,12 @@ export const generateCastMaps = (params: GeneratorParams) => {
   const {implicitCastMap} = casts;
 
   const f = dir.getPath("castMaps");
-  const edgedb = "edgedb";
-  f.addImportStar("edgedb", edgedb);
-  f.addImport({$: true}, edgedb, {modes: ["ts", "dts"], typeOnly: true});
-
-  // if is Deno
-  // @ts-ignore
-  const isDeno = typeof Deno !== "undefined";
-  if (isDeno) {
-    f.addImport(
-      {Buffer: true},
-      "https://deno.land/std@0.114.0/node/buffer.ts",
-      {modes: ["ts", "dts"]}
-    );
-  }
+  f.addImportStar("edgedb", "edgedb");
+  f.addImportStar("$", "./reflection", {
+    modes: ["ts", "dts"],
+    allowFileExt: true,
+    typeOnly: true
+  });
 
   const reverseTopo = Array.from(types)
     .reverse() // reverse topological order
@@ -293,7 +285,7 @@ export const generateCastMaps = (params: GeneratorParams) => {
             !type.is_abstract &&
             !type.enum_values &&
             !type.material_id &&
-            !type.castType &&
+            !type.cast_type &&
             (!scalarToLiteralMapping[type.name] ||
               !scalarToLiteralMapping[type.name].literalKind)
           );
@@ -366,7 +358,7 @@ export const generateCastMaps = (params: GeneratorParams) => {
   f.writeln([t`  [k in keyof T]: literalToTypeSet<T[k]>;`]);
   f.writeln([t`};\n\n`]);
 
-  f.addImportStar("literal", "./syntax/literal", {allowFileExt: true});
+  f.addImportStar("literal", "./literal", {allowFileExt: true});
 
   f.writeln([
     dts`declare `,

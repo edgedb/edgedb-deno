@@ -1,5 +1,5 @@
 import {CodeBuffer, dts, r, t, ts} from "../builders.ts";
-import type {GeneratorParams} from "../generate.ts";
+import type {GeneratorParams} from "../genutil.ts";
 import {frag, quote, splitName} from "../genutil.ts";
 import {
   allowsLiterals,
@@ -33,11 +33,11 @@ export function generateOperatorFunctions({
     false,
     (code, opDef, args, namedArgs, returnType) => {
       // Name
-      code.writeln([t`${quote(opDef.originalName)},`]);
+      // code.writeln([t`${quote(opDef.originalName)},`]);
       // OperatorKind
-      code.writeln([t`$.OperatorKind.${opDef.operator_kind},`]);
+      // code.writeln([t`$.OperatorKind.${opDef.operator_kind},`]);
       // Args
-      code.writeln([t`${args}`]);
+      // code.writeln([t`${args}`]);
       // ReturnType
       code.writeln([t`${returnType}`]);
     },
@@ -64,9 +64,8 @@ export function generateOperators({
   const typeSpecificities = getTypesSpecificity(types, casts);
   const implicitCastableRootTypes = getImplicitCastableRootTypes(casts);
   const code = dir.getPath("operators");
-  const edgedb = "edgedb";
 
-  code.addImport({$: true}, edgedb);
+  code.addImportStar("$", "./reflection", {allowFileExt: true});
   code.addImportStar("_", "./imports", {allowFileExt: true});
 
   const overloadsBuf = new CodeBuffer();
@@ -146,7 +145,7 @@ export function generateOperators({
         }
       }
 
-      let hasLiterals = false;
+      // let hasLiterals = false;
       overloadsBuf.indented(() => {
         for (const param of params.positional) {
           const anytype = getParamAnytype(param.typeName, param.type);
@@ -161,7 +160,7 @@ export function generateOperators({
 
           if (allowsLiterals(param.type, anytypes)) {
             type = frag`_.castMaps.orScalarLiteral<${type}>`;
-            hasLiterals = true;
+            // hasLiterals = true;
           }
 
           overloadsBuf.writeln([t`${param.typeName} extends ${type},`]);
@@ -200,9 +199,9 @@ export function generateOperators({
         }
       });
 
-      const paramTypeNames = params.positional
-        .map(param => param.typeName)
-        .join(", ");
+      // const paramTypeNames = params.positional
+      //   .map(param => param.typeName)
+      //   .join(", ");
 
       const returnAnytype = anytypes
         ? anytypes.kind === "castable"
@@ -229,23 +228,23 @@ export function generateOperators({
 
       overloadsBuf.writeln([t`): $.$expr_Operator<`]);
       overloadsBuf.indented(() => {
-        overloadsBuf.writeln([t`${quote(opSymbol)},`]);
-        overloadsBuf.writeln([t`$.OperatorKind.${opDef.operator_kind},`]);
+        // overloadsBuf.writeln([t`${quote(opSymbol)},`]);
+        // overloadsBuf.writeln([t`$.OperatorKind.${opDef.operator_kind},`]);
+        // overloadsBuf.writeln([
+        //   t`${
+        //     hasLiterals
+        //       ? `_.castMaps.mapLiteralToTypeSet<[${paramTypeNames}]>`
+        //       : `[${paramTypeNames}]`
+        //   },`
+        // ]);
         overloadsBuf.writeln([
-          t`${
-            hasLiterals
-              ? `_.castMaps.mapLiteralToTypeSet<[${paramTypeNames}]>`
-              : `[${paramTypeNames}]`
-          },`
-        ]);
-        overloadsBuf.writeln([
-          t`$.TypeSet<${returnType.staticType}, ${generateReturnCardinality(
+          t`${returnType.staticType}, ${generateReturnCardinality(
             opName,
             params,
             opDef.return_typemod,
             false,
             anytypes
-          )}>`
+          )}`
         ]);
       });
       overloadsBuf.writeln([t`>;`]);

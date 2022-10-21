@@ -1,10 +1,10 @@
 // tslint:disable
-import {createClient, adapter} from "../mod.ts";
+import {createClient, adapter, $} from "../mod.ts";
 import type {ConnectConfig} from "../_src/conUtils.ts";
 import type {CommandOptions} from "./commandutil.ts";
-import {generateQueryType} from "./codecToType.ts";
-import type {QueryType} from "./codecToType.ts";
-import type {Target} from "./generate.ts";
+// import {$} from "./codecToType";
+// import type {QueryType} from "./codecToType";
+import type {Target} from "./genutil.ts";
 import {Cardinality} from "../_src/ifaces.ts";
 
 // generate per-file queries
@@ -47,7 +47,7 @@ currently supported.`);
   console.log(`Connecting to database...`);
   await client.ensureConnected();
 
-  console.log(`Searching for .edgeql files...`);
+  console.log(`Analyzing .edgeql files...`);
 
   // generate all queries in single file
   if (params.options.file) {
@@ -58,7 +58,7 @@ currently supported.`);
       const prettyPath = "./" + adapter.path.posix.relative(root, path);
       console.log(`   ${prettyPath}`);
       const query = await adapter.readFileUtf8(path);
-      const types = await generateQueryType(client, query);
+      const types = await $.analyzeQuery(client, query);
       const files = await generateFiles({
         target: params.options.target!,
         path,
@@ -82,11 +82,16 @@ currently supported.`);
       }...`
     );
     for (const [extension, file] of Object.entries(filesByExtension)) {
-      const filePath = adapter.path.join(
-        root,
-        params.options.file + extension
-      );
-      const prettyPath = "./" + adapter.path.posix.relative(root, filePath);
+      const filePath =
+        (adapter.path.isAbsolute(params.options.file)
+          ? params.options.file
+          : adapter.path.join(
+              adapter.process.cwd(), // all paths computed relative to cwd
+              params.options.file
+            )) + extension;
+      const prettyPath = adapter.path.isAbsolute(params.options.file)
+        ? params.options.file + extension
+        : "./" + adapter.path.posix.relative(root, filePath);
       console.log(`   ${prettyPath}`);
       await adapter.fs.writeFile(
         filePath,
@@ -100,7 +105,7 @@ currently supported.`);
   async function generateFilesForQuery(path: string) {
     const query = await adapter.readFileUtf8(path);
     if (!query) return;
-    const types = await generateQueryType(client, query);
+    const types = await $.analyzeQuery(client, query);
     const files = await generateFiles({
       target: params.options.target!,
       path,
@@ -157,6 +162,8 @@ async function getMatches(root: string) {
 //   ts: `.ts`
 // };
 
+type QueryType = Awaited<ReturnType<typeof $["analyzeQuery"]>>;
+
 function generateFiles(params: {
   target: Target;
   path: string;
@@ -184,17 +191,26 @@ function generateFiles(params: {
   }
   const tsImports = {Client: true, ...imports};
 
-  const tsImpl = `async function ${functionName}(client: Client, args: ${
-    params.types.args
-  }): Promise<${params.types.out}> {
-  return client.${method}(\`${params.types.query.replace("`", "`")}\`, args)
+  const hasArgs = params.types.args && params.types.args !== "null";
+  const tsImpl = `async function ${functionName}(client: Client${
+    hasArgs ? `, args: ${params.types.args}` : ""
+  }): Promise<${params.types.result}> {
+  return client.${method}(\`${params.types.query.replace("`", "`")}\`${
+    hasArgs ? `, args` : ""
+  });
 }`;
 
-  const jsImpl = `async function ${functionName}(client, args){
-  return client.${method}(\`${params.types.query.replace("`", "`")}\`, args);
+  const jsImpl = `async function ${functionName}(client${
+    hasArgs ? `, args` : ""
+  }) {
+  return client.${method}(\`${params.types.query.replace("`", "`")}\`${
+    hasArgs ? `, args` : ""
+  });
 }`;
 
-  const dtsImpl = `function ${functionName}(client: Client, params: ${params.types.args}): Promise<${params.types.out}>;`;
+  const dtsImpl = `function ${functionName}(client: Client${
+    hasArgs ? `, args: ${params.types.args}` : ""
+  }): Promise<${params.types.result}>;`;
 
   switch (params.target) {
     case "cjs":

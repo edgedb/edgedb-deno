@@ -1,7 +1,15 @@
-import type {CodeBuilder, CodeFragment, IdentRef} from "./builders.ts";
+import type {
+  CodeBuilder,
+  CodeFragment,
+  DirBuilder,
+  IdentRef
+} from "./builders.ts";
 import type * as introspect from "../_src/reflection/queries/types.ts";
-import {util} from "../_src/reflection/util.ts";
+import {util} from "../_src/reflection/index.ts";
+
 export {$} from "../mod.ts";
+import type {$} from "../mod.ts";
+import {adapter} from "../mod.ts";
 
 export function splitName(name: string) {
   if (!name.includes("::")) throw new Error(`Invalid FQN ${name}`);
@@ -55,7 +63,7 @@ export const scalarToLiteralMapping: {
   "std::json": {type: "unknown"},
   "std::bool": {type: "boolean", literalKind: "typeof"},
   "std::bigint": {type: "bigint", literalKind: "typeof"},
-  "std::bytes": {type: "Buffer", literalKind: "instanceof"},
+  "std::bytes": {type: "Uint8Array", literalKind: "instanceof"},
   "std::datetime": {
     type: "Date",
     literalKind: "instanceof",
@@ -371,3 +379,90 @@ export const reservedIdents = new Set([
   "instanceof",
   "Object"
 ]);
+
+export async function writeDirWithTarget(
+  dir: DirBuilder,
+  target: Target,
+  params: {outputDir: string; written?: Set<string>}
+) {
+  const {outputDir, written = new Set<string>()} = params;
+  if (target === "ts") {
+    await dir.write(outputDir, {
+      mode: "ts",
+      moduleKind: "esm",
+      fileExtension: ".ts",
+      moduleExtension: "",
+      written
+    });
+  } else if (target === "mts") {
+    await dir.write(outputDir, {
+      mode: "ts",
+      moduleKind: "esm",
+      fileExtension: ".mts",
+      moduleExtension: ".mjs",
+      written
+    });
+  } else if (target === "cjs") {
+    await dir.write(outputDir, {
+      mode: "js",
+      moduleKind: "cjs",
+      fileExtension: ".js",
+      moduleExtension: "",
+      written
+    });
+    await dir.write(outputDir, {
+      mode: "dts",
+      moduleKind: "esm",
+      fileExtension: ".d.ts",
+      moduleExtension: "",
+      written
+    });
+  } else if (target === "esm") {
+    await dir.write(outputDir, {
+      mode: "js",
+      moduleKind: "esm",
+      fileExtension: ".mjs",
+      moduleExtension: ".mjs",
+      written
+    });
+    await dir.write(outputDir, {
+      mode: "dts",
+      moduleKind: "esm",
+      fileExtension: ".d.ts",
+      moduleExtension: "",
+      written
+    });
+  } else if (target === "deno") {
+    await dir.write(outputDir, {
+      mode: "ts",
+      moduleKind: "esm",
+      fileExtension: ".ts",
+      moduleExtension: ".ts",
+      written
+    });
+  }
+}
+
+export type GeneratorParams = {
+  dir: DirBuilder;
+  types: $.introspect.Types;
+  typesByName: Record<string, $.introspect.Type>;
+  casts: $.introspect.Casts;
+  scalars: $.introspect.ScalarTypes;
+  functions: $.introspect.FunctionTypes;
+  globals: $.introspect.Globals;
+  operators: $.introspect.OperatorTypes;
+};
+
+export function exitWithError(message: string): never {
+  // tslint:disable-next-line
+  console.error(message);
+  adapter.exit(1);
+  throw new Error();
+}
+
+export type Target = "ts" | "esm" | "cjs" | "mts" | "deno";
+export type Version = {
+  major: number;
+  minor: number;
+};

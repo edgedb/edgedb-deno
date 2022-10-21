@@ -1,4 +1,4 @@
-import type {GeneratorParams} from "../generate.ts";
+import type {GeneratorParams} from "../genutil.ts";
 import {frag, getRef, quote, splitName} from "../genutil.ts";
 import {
   all,
@@ -41,11 +41,11 @@ export const generateFunctionTypes = ({
     true,
     (code, funcDef, args, namedArgs, returnType) => {
       // Name
-      code.writeln([t`${quote(funcDef.name)},`]);
+      // code.writeln([t`${quote(funcDef.name)},`]);
       // Args
-      code.writeln([t`${args}`]);
+      // code.writeln([t`${args}`]);
       // NamedArgs
-      code.writeln([t`${namedArgs}`]);
+      // code.writeln([t`${namedArgs}`]);
       // ReturnType
       code.writeln([t`${returnType}`]);
     },
@@ -73,8 +73,8 @@ export interface FuncopDef {
   kind?: string;
   description?: string;
   return_type: {id: string; name: string};
-  return_typemod: $.introspect.Typemod;
-  params: $.introspect.Param[];
+  return_typemod: $.introspect.FuncopTypemod;
+  params: $.introspect.FuncopParam[];
   preserves_optionality?: boolean;
 }
 
@@ -380,16 +380,14 @@ export function generateFuncopTypes<F extends FuncopDef>(
                 : "{}"
             },`,
             // return type
-            frag`$.TypeSet<${
-              returnType.staticType
-            }, ${generateReturnCardinality(
+            frag`${returnType.staticType}, ${generateReturnCardinality(
               funcName,
               params,
               funcDef.return_typemod,
               hasNamedParams,
               anytypes,
               funcDef.preserves_optionality
-            )}>`
+            )}`
           );
         });
 
@@ -490,7 +488,7 @@ export function generateFuncopDef(funcopDef: FuncopDefOverload<FuncopDef>) {
 export function generateReturnCardinality(
   name: string,
   params: GroupedParams,
-  returnTypemod: $.introspect.Typemod,
+  returnTypemod: $.introspect.FuncopTypemod,
   hasNamedParams: boolean,
   anytypes: AnytypeDef | null,
   preservesOptionality: boolean = false

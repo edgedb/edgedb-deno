@@ -1,27 +1,26 @@
 #!/usr/bin/env node
 
-// tslint:disable no-console
+// tslint:disable:no-console
 import {adapter} from "../mod.ts";
 
-import {
-  ConnectConfig,
-  parseConnectArguments,
-  validTlsSecurityValues
-} from "../_src/conUtils.ts";
+import {ConnectConfig, validTlsSecurityValues} from "../_src/conUtils.ts";
+import {parseConnectArguments} from "../_src/conUtils.server.ts";
 import {
   CommandOptions,
   promptForPassword,
   readPasswordFromStdin
 } from "./commandutil.ts";
 import {generateQueryBuilder} from "./edgeql-js.ts";
-import {exitWithError} from "./generate.ts";
+import {runInterfacesGenerator} from "./interfaces.ts";
+import {exitWithError} from "./genutil.ts";
 import {generateQueryFiles} from "./queries.ts";
 
 const {path, readFileUtf8, exists} = adapter;
 
 enum Generator {
   QueryBuilder = "edgeql-js",
-  Queries = "queries"
+  Queries = "queries",
+  Interfaces = "interfaces"
 }
 
 const run = async () => {
@@ -37,7 +36,7 @@ const run = async () => {
   }
   if (!generator || generator[0] === "-") {
     console.error(
-      `Error: No generator specified.\n  \`npx @edgedb/generate [generator]\`\nAvailable generators:\n - edgeql-js (query builder)\n - queries (query files)`
+      `Error: No generator specified.\n  \`npx @edgedb/generate <generator>\`\nAvailable generators:\n - edgeql-js (query builder)\n - queries (query files)`
     );
     adapter.exit();
   }
@@ -46,6 +45,16 @@ const run = async () => {
       `Error: Invalid generator "${generator}". Available generators:\n - edgeql-js (query builder)\n - queries (query files)`
     );
     adapter.exit();
+  }
+
+  switch (generator) {
+    case Generator.QueryBuilder:
+      break;
+    case Generator.Queries:
+      break;
+    case Generator.Interfaces:
+      options.target = "ts";
+      break;
   }
 
   while (args.length) {
@@ -135,6 +144,11 @@ const run = async () => {
         connectionConfig.tlsSecurity = tlsSec;
         break;
       case "--target":
+        if (generator === Generator.Interfaces) {
+          exitWithError(
+            `--target is not supported for generator "${generator}"`
+          );
+        }
         const target = getVal();
         if (!target || !["ts", "esm", "cjs", "mts", "deno"].includes(target)) {
           exitWithError(
@@ -147,16 +161,29 @@ const run = async () => {
         break;
       case "--out":
       case "--output-dir":
+        if (
+          generator === Generator.Interfaces ||
+          generator === Generator.Queries
+        ) {
+          exitWithError(
+            `--output-dir is not supported for generator "${generator}"`
+          );
+        }
         options.out = getVal();
         break;
       case "--file":
-        if (generator !== Generator.Queries) {
-          exitWithError(`Unknown option: ${flag}`);
-        }
-        if (args.length > 0 && args[0][0] !== "-") {
+        if (generator === Generator.Interfaces) {
           options.file = getVal();
+        } else if (generator === Generator.Queries) {
+          if (args.length > 0 && args[0][0] !== "-") {
+            options.file = getVal();
+          } else {
+            options.file = "dbschema/queries";
+          }
         } else {
-          options.file = "dbschema/queries";
+          exitWithError(
+            `Flag --file not supported for generator "${generator}"`
+          );
         }
 
         break;
@@ -219,6 +246,9 @@ const run = async () => {
       break;
     case Generator.Queries:
       console.log(`Generating functions from .edgeql files...`);
+      break;
+    case Generator.Interfaces:
+      console.log(`Generating TS interfaces from schema...`);
       break;
   }
 
@@ -324,6 +354,13 @@ Run this command inside an EdgeDB project directory or specify the desired targe
         root: projectRoot
       });
       break;
+    case Generator.Interfaces:
+      await runInterfacesGenerator({
+        options,
+        connectionConfig,
+        root: projectRoot
+      });
+      break;
   }
 };
 
@@ -336,8 +373,10 @@ USAGE
     npx @edgedb/generate [COMMAND] [OPTIONS]
 
 COMMANDS:
-    edgeql-js       Generate query builder
     queries         Generate typed functions from .edgeql files
+    edgeql-js       Generate query builder
+    interfaces      Generate TS interfaces for schema types
+
 
 CONNECTION OPTIONS:
     -I, --instance <instance>

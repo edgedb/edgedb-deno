@@ -1,9 +1,50 @@
-import {adapter} from "../mod.ts";
-import {configFileHeader, exitWithError, generateQB} from "./generate.ts";
-import {isTTY, CommandOptions, promptBoolean} from "./commandutil.ts";
-import type {ConnectConfig} from "../_src/conUtils.ts";
+// tslint:disable:no-console
 
-const {path, fs, readFileUtf8, exists} = adapter;
+import {adapter} from "../mod.ts";
+import type {ConnectConfig} from "../_src/conUtils.ts";
+import {CommandOptions, isTTY, promptBoolean} from "./commandutil.ts";
+import {$, Client, createClient} from "../mod.ts";
+import {DirBuilder} from "./builders.ts";
+import {syntax} from "./FILES.ts";
+
+import {generateCastMaps} from "./edgeql-js/generateCastMaps.ts";
+import {generateFunctionTypes} from "./edgeql-js/generateFunctionTypes.ts";
+import {generateGlobals} from "./edgeql-js/generateGlobals.ts";
+import {generateIndex} from "./edgeql-js/generateIndex.ts";
+import {generateObjectTypes} from "./edgeql-js/generateObjectTypes.ts";
+import {generateOperators} from "./edgeql-js/generateOperatorTypes.ts";
+import {generateRuntimeSpec} from "./edgeql-js/generateRuntimeSpec.ts";
+import {generateScalars} from "./edgeql-js/generateScalars.ts";
+import {generateSetImpl} from "./edgeql-js/generateSetImpl.ts";
+
+const {path, fs, readFileUtf8, exists, exit, walk} = adapter;
+
+// tslint:disable-next-line
+export const configFileHeader = `// EdgeDB query builder. To update, run \`npx @edgedb/generate edgeql-js\``;
+
+export type GeneratorParams = {
+  dir: DirBuilder;
+  types: $.introspect.Types;
+  typesByName: Record<string, $.introspect.Type>;
+  casts: $.introspect.Casts;
+  scalars: $.introspect.ScalarTypes;
+  functions: $.introspect.FunctionTypes;
+  globals: $.introspect.Globals;
+  operators: $.introspect.OperatorTypes;
+};
+
+export function exitWithError(message: string): never {
+  // tslint:disable-next-line
+  console.error(message);
+  exit(1);
+  throw new Error();
+}
+
+export type Target = "ts" | "esm" | "cjs" | "mts" | "deno";
+export type Version = {
+  major: number;
+  minor: number;
+};
 
 export async function generateQueryBuilder(params: {
   root: string | null;
@@ -49,7 +90,178 @@ export async function generateQueryBuilder(params: {
     options.updateIgnoreFile = true;
   }
 
-  await generateQB({outputDir, connectionConfig, target: options.target!});
+  // generate query builder
+  const target = options.target!;
+  let cxn: Client;
+  try {
+    cxn = createClient({
+      ...connectionConfig,
+      concurrency: 5
+    });
+  } catch (e) {
+    exitWithError(`Failed to connect: ${(e as Error).message}`);
+  }
+
+  const dir = new DirBuilder();
+
+  try {
+    // tslint:disable-next-line
+    console.log(`Introspecting database schema...`);
+
+    const [types, scalars, casts, functions, operators, globals] =
+      await Promise.all([
+        $.introspect.types(cxn),
+        $.introspect.scalars(cxn),
+        $.introspect.casts(cxn),
+        $.introspect.functions(cxn),
+        $.introspect.operators(cxn),
+        $.introspect.globals(cxn)
+      ]);
+
+    const typesByName: Record<string, $.introspect.Type> = {};
+    for (const type of types.values()) {
+      typesByName[type.name] = type;
+
+      // skip "anytype" and "anytuple"
+      if (!type.name.includes("::")) continue;
+    }
+
+    const generatorParams: GeneratorParams = {
+      dir,
+      types,
+      typesByName,
+      casts,
+      scalars,
+      functions,
+      globals,
+      operators
+    };
+    generateRuntimeSpec(generatorParams);
+    generateCastMaps(generatorParams);
+    generateScalars(generatorParams);
+    generateObjectTypes(generatorParams);
+    generateFunctionTypes(generatorParams);
+    generateOperators(generatorParams);
+    generateSetImpl(generatorParams);
+    generateGlobals(generatorParams);
+    generateIndex(generatorParams);
+
+    // generate module imports
+
+    const importsFile = dir.getPath("imports");
+
+    importsFile.addExportStar("edgedb", {as: "edgedb"});
+    importsFile.addExportFrom({spec: true}, "./__spec__", {
+      allowFileExt: true
+    });
+    importsFile.addExportStar("./syntax", {
+      allowFileExt: true,
+      as: "syntax"
+    });
+    importsFile.addExportStar("./castMaps", {
+      allowFileExt: true,
+      as: "castMaps"
+    });
+  } finally {
+    await cxn.close();
+  }
+
+  const initialFiles = new Set(await walk(outputDir));
+  const written = new Set<string>();
+
+  // write syntax files
+  const syntaxOutDir = path.join(outputDir);
+  if (!(await exists(syntaxOutDir))) {
+    await fs.mkdir(syntaxOutDir);
+  }
+
+  const syntaxFiles = syntax[target];
+  if (!syntaxFiles) {
+    throw new Error(`Error: no syntax files found for target "${target}"`);
+  }
+
+  for (const f of syntaxFiles) {
+    const outputPath = path.join(syntaxOutDir, f.path);
+    written.add(outputPath);
+    let oldContents = "";
+    try {
+      oldContents = await readFileUtf8(outputPath);
+    } catch {}
+    if (oldContents !== f.content) {
+      await fs.writeFile(outputPath, f.content);
+    }
+  }
+
+  if (target === "ts") {
+    await dir.write(outputDir, {
+      mode: "ts",
+      moduleKind: "esm",
+      fileExtension: ".ts",
+      moduleExtension: "",
+      written
+    });
+  } else if (target === "mts") {
+    await dir.write(outputDir, {
+      mode: "ts",
+      moduleKind: "esm",
+      fileExtension: ".mts",
+      moduleExtension: ".mjs",
+      written
+    });
+  } else if (target === "cjs") {
+    await dir.write(outputDir, {
+      mode: "js",
+      moduleKind: "cjs",
+      fileExtension: ".js",
+      moduleExtension: "",
+      written
+    });
+    await dir.write(outputDir, {
+      mode: "dts",
+      moduleKind: "esm",
+      fileExtension: ".d.ts",
+      moduleExtension: "",
+      written
+    });
+  } else if (target === "esm") {
+    await dir.write(outputDir, {
+      mode: "js",
+      moduleKind: "esm",
+      fileExtension: ".mjs",
+      moduleExtension: ".mjs",
+      written
+    });
+    await dir.write(outputDir, {
+      mode: "dts",
+      moduleKind: "esm",
+      fileExtension: ".d.ts",
+      moduleExtension: "",
+      written
+    });
+  } else if (target === "deno") {
+    await dir.write(outputDir, {
+      mode: "ts",
+      moduleKind: "esm",
+      fileExtension: ".ts",
+      moduleExtension: ".ts",
+      written
+    });
+  }
+
+  const configPath = path.join(outputDir, "config.json");
+  await fs.writeFile(
+    configPath,
+    `${configFileHeader}\n${JSON.stringify({target})}\n`
+  );
+  written.add(configPath);
+
+  // delete all vestigial files
+  for (const file of initialFiles) {
+    if (written.has(file)) {
+      continue;
+    }
+    await fs.rm(file);
+  }
 
   console.log(`Writing files to ${prettyOutputDir}`);
   console.log(`Generation complete! 🤘`);
@@ -78,13 +290,13 @@ project to exclude these files.`
         await promptBoolean(
           gitIgnoreFile === null
             ? `Checking the generated query builder into version control
-is NOT RECOMMENDED. Would you like to create a .gitignore file to ignore
+is not recommended. Would you like to create a .gitignore file to ignore
 the query builder directory? `
             : `Checking the generated query builder into version control
-is NOT RECOMMENDED. Would you like to update .gitignore to ignore
+is not recommended. Would you like to update .gitignore to ignore
 the query builder directory? The following line will be added:
 
-  ${vcsLine}\n\n`,
+   ${vcsLine}\n\n`,
           true
         )
       ) {

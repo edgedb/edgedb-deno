@@ -1,4 +1,4 @@
-import type {GeneratorParams} from "../generate.ts";
+import type {GeneratorParams} from "../genutil.ts";
 import {frag, getRef, splitName} from "../genutil.ts";
 import {dts, r, t, ts} from "../builders.ts";
 
@@ -6,7 +6,7 @@ import {getStringRepresentation} from "./generateObjectTypes.ts";
 import type {$} from "../genutil.ts";
 
 export const generateGlobals = ({dir, globals, types}: GeneratorParams) => {
-  const globalsByMod: {[k: string]: $.introspect.GlobalType[]} = {};
+  const globalsByMod: {[k: string]: $.introspect.Global[]} = {};
   for (const [_id, g] of globals.entries()) {
     const {mod} = splitName(g.name);
     globalsByMod[mod] = globalsByMod[mod] || [];
@@ -26,9 +26,9 @@ export const generateGlobals = ({dir, globals, types}: GeneratorParams) => {
           const targetTypeRep = getStringRepresentation(targetType, {types});
           return [
             t`  ${name}: _.syntax.$expr_Global<
-              "${g.name}",
+              // "${g.name}",
               ${targetTypeRep.staticType},
-              $.Cardinality.${g.real_cardinality}
+              $.Cardinality.${g.card}
               >`,
             t`,`
           ];
@@ -43,7 +43,7 @@ export const generateGlobals = ({dir, globals, types}: GeneratorParams) => {
             r`  ${name}: _.syntax.makeGlobal(
               "${g.name}",
               $.makeType(_.spec, "${g.target_id}", _.syntax.literal),
-              $.Cardinality.${g.real_cardinality})`,
+              $.Cardinality.${g.card})`,
             ts` as any`,
             r`,`
           ];
