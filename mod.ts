@@ -38,4 +38,3 @@ export type {BackoffFunction} from "./_src/options.ts";
 
 export * from "./_src/index.shared.ts";
 export * as $ from "./_src/reflection/index.ts";
-export {prettyPrintError} from "./_src/prettyPrint.ts";

@@ -12,7 +12,6 @@ import {TupleCodec} from "../codecs/tuple.ts";
 import {Cardinality, OutputFormat} from "../ifaces.ts";
 import {Options, Session} from "../options.ts";
 import type {Client, BaseClientPool} from "../baseClient.ts";
-import {prettyPrintError} from "../prettyPrint.ts";
 
 type QueryType = {
   args: string;
@@ -39,8 +38,6 @@ export async function analyzeQuery(
       Session.defaults(),
       false
     );
-  } catch (err) {
-    throw new Error(prettyPrintError(err, query));
   } finally {
     await holder.release();
   }
