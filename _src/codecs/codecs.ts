@@ -26,7 +26,7 @@ import {
   Float32Codec,
   Float64Codec
 } from "./numbers.ts";
-import {BigIntCodec} from "./numerics.ts";
+import {BigIntCodec, DecimalStringCodec} from "./numerics.ts";
 import {StrCodec} from "./text.ts";
 import {UUIDCodec} from "./uuid.ts";
 import {BytesCodec} from "./bytes.ts";
@@ -96,6 +96,7 @@ registerScalarCodec("std::float32", Float32Codec);
 registerScalarCodec("std::float64", Float64Codec);
 
 registerScalarCodec("std::bigint", BigIntCodec);
+registerScalarCodec("std::decimal", DecimalStringCodec);
 
 registerScalarCodec("std::bool", BoolCodec);
 
