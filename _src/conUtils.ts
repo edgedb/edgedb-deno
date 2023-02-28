@@ -28,6 +28,8 @@ import {
 import {Duration, parseHumanDurationString} from "./datatypes/datetime.ts";
 import {checkValidEdgeDBDuration} from "./codecs/datetime.ts";
 import {InterfaceError} from "./errors/index.ts";
+import {decodeB64, utf8Decoder, utf8Encoder} from "./primitives/buffer.ts";
+import {crcHqx} from "./primitives/crcHqx.ts";
 
 export type Address = [string, number];
 
@@ -58,6 +60,7 @@ export interface NormalizedConnectConfig extends PartiallyNormalizedConfig {
 
 export interface ConnectConfig {
   dsn?: string;
+  instanceName?: string;
   credentials?: string;
   credentialsFile?: string;
   host?: string;
@@ -65,6 +68,7 @@ export interface ConnectConfig {
   database?: string;
   user?: string;
   password?: string;
+  secretKey?: string;
   serverSettings?: any;
   tlsCA?: string;
   tlsCAFile?: string;
@@ -104,6 +108,8 @@ type ConnectConfigParams =
   | "database"
   | "user"
   | "password"
+  | "secretKey"
+  | "cloudProfile"
   | "tlsCAData"
   | "tlsSecurity"
   | "waitUntilAvailable";
@@ -124,6 +130,12 @@ export class ResolvedConnectConfig {
   _password: string | null = null;
   _passwordSource: string | null = null;
 
+  _secretKey: string | null = null;
+  _secretKeySource: string | null = null;
+
+  _cloudProfile: string | null = null;
+  _cloudProfileSource: string | null = null;
+
   _tlsCAData: string | null = null;
   _tlsCADataSource: string | null = null;
 
@@ -141,6 +153,7 @@ export class ResolvedConnectConfig {
     this.setDatabase = this.setDatabase.bind(this);
     this.setUser = this.setUser.bind(this);
     this.setPassword = this.setPassword.bind(this);
+    this.setSecretKey = this.setSecretKey.bind(this);
     this.setTlsCAData = this.setTlsCAData.bind(this);
     this.setTlsCAFile = this.setTlsCAFile.bind(this);
     this.setTlsSecurity = this.setTlsSecurity.bind(this);
@@ -210,6 +223,14 @@ export class ResolvedConnectConfig {
 
   setPassword(password: string | null, source: string): boolean {
     return this._setParam("password", password, source);
+  }
+
+  setSecretKey(secretKey: string | null, source: string): boolean {
+    return this._setParam("secretKey", secretKey, source);
+  }
+
+  setCloudProfile(cloudProfile: string | null, source: string): boolean {
+    return this._setParam("cloudProfile", cloudProfile, source);
   }
 
   setTlsCAData(caData: string | null, source: string): boolean {
@@ -309,6 +330,14 @@ export class ResolvedConnectConfig {
 
   get password(): string | undefined {
     return this._password ?? undefined;
+  }
+
+  get secretKey(): string | undefined {
+    return this._secretKey ?? undefined;
+  }
+
+  get cloudProfile(): string {
+    return this._cloudProfile ?? "default";
   }
 
   get tlsSecurity(): Exclude<TlsSecurity, "default"> {
@@ -459,9 +488,11 @@ async function parseConnectDsnAndArgs(
   const projectDir = await serverUtils?.findProjectDir();
 
   const [dsn, instanceName]: [string | undefined, string | undefined] =
-    config.dsn && /^[a-z]+:\/\//i.test(config.dsn)
-      ? [config.dsn, undefined]
-      : [undefined, config.dsn];
+    config.instanceName == null &&
+    config.dsn != null &&
+    !/^[a-z]+:\/\//i.test(config.dsn)
+      ? [undefined, config.dsn]
+      : [config.dsn, config.instanceName];
 
   // resolve explicit config options
   let {hasCompoundOptions} = await resolveConfigOptions(
@@ -476,6 +507,7 @@ async function parseConnectDsnAndArgs(
       database: config.database,
       user: config.user,
       password: config.password,
+      secretKey: config.secretKey,
       tlsCA: config.tlsCA,
       tlsCAFile: config.tlsCAFile,
       tlsSecurity: config.tlsSecurity,
@@ -484,7 +516,10 @@ async function parseConnectDsnAndArgs(
     },
     {
       dsn: `'dsnOrInstanceName' option (parsed as dsn)`,
-      instanceName: `'dsnOrInstanceName' option (parsed as instance name)`,
+      instanceName:
+        config.instanceName != null
+          ? `'instanceName' option`
+          : `'dsnOrInstanceName' option (parsed as instance name)`,
       credentials: `'credentials' option`,
       credentialsFile: `'credentialsFile' option`,
       host: `'host' option`,
@@ -492,6 +527,7 @@ async function parseConnectDsnAndArgs(
       database: `'database' option`,
       user: `'user' option`,
       password: `'password' option`,
+      secretKey: `'secretKey' option`,
       tlsCA: `'tlsCA' option`,
       tlsCAFile: `'tlsCAFile' option`,
       tlsSecurity: `'tlsSecurity' option`,
@@ -499,7 +535,7 @@ async function parseConnectDsnAndArgs(
       waitUntilAvailable: `'waitUntilAvailable' option`
     },
     `Cannot have more than one of the following connection options: ` +
-      `'dsnOrInstanceName', 'credentials', 'credentialsFile' or 'host'/'port'`,
+      `'dsn', 'instanceName', 'credentials', 'credentialsFile' or 'host'/'port'`,
     serverUtils
   );
 
@@ -529,6 +565,8 @@ async function parseConnectDsnAndArgs(
           database: process.env.EDGEDB_DATABASE,
           user: process.env.EDGEDB_USER,
           password: process.env.EDGEDB_PASSWORD,
+          secretKey: process.env.EDGEDB_SECRET_KEY,
+          cloudProfile: process.env.EDGEDB_CLOUD_PROFILE,
           tlsCA: process.env.EDGEDB_TLS_CA,
           tlsCAFile: process.env.EDGEDB_TLS_CA_FILE,
           tlsSecurity: process.env.EDGEDB_CLIENT_TLS_SECURITY,
@@ -544,6 +582,8 @@ async function parseConnectDsnAndArgs(
           database: `'EDGEDB_DATABASE' environment variable`,
           user: `'EDGEDB_USER' environment variable`,
           password: `'EDGEDB_PASSWORD' environment variable`,
+          secretKey: `'EDGEDB_SECRET_KEY' environment variable`,
+          cloudProfile: `'EDGEDB_CLOUD_PROFILE' environment variable`,
           tlsCA: `'EDGEDB_TLS_CA' environment variable`,
           tlsCAFile: `'EDGEDB_TLS_CA_FILE' environment variable`,
           tlsSecurity: `'EDGEDB_CLIENT_TLS_SECURITY' environment variable`,
@@ -580,10 +620,17 @@ async function parseConnectDsnAndArgs(
       .catch(() => null);
 
     if (instName !== null) {
+      const cloudProfile = await serverUtils
+        .readFileUtf8(stashDir, "cloud-profile")
+        .then(name => name.trim())
+        .catch(() => undefined);
       await resolveConfigOptions(
         resolvedConfig,
-        {instanceName: instName},
-        {instanceName: `project linked instance ('${instName}')`},
+        {instanceName: instName, cloudProfile},
+        {
+          instanceName: `project linked instance ('${instName}')`,
+          cloudProfile: `project defined cloud instance ('${cloudProfile}')`
+        },
         "",
         serverUtils
       );
@@ -616,6 +663,8 @@ interface ResolveConfigOptionsConfig {
   database: string;
   user: string;
   password: string;
+  secretKey: string;
+  cloudProfile: string;
   tlsCA: string;
   tlsCAFile: string;
   tlsSecurity: string;
@@ -638,7 +687,7 @@ async function resolveConfigOptions<
     serverUtils?.readFileUtf8 ??
     ((fn: string): Promise<string> => {
       throw new InterfaceError(
-        `cannot read file "${fn}" in browser (or edgedb runtime) environment`
+        `cannot read file "${fn}" in browser (or edge runtime) environment`
       );
     });
 
@@ -657,6 +706,16 @@ async function resolveConfigOptions<
   anyOptionsUsed =
     resolvedConfig.setPassword(config.password ?? null, sources.password!) ||
     anyOptionsUsed;
+  anyOptionsUsed =
+    resolvedConfig.setSecretKey(
+      config.secretKey ?? null,
+      sources.secretKey!
+    ) || anyOptionsUsed;
+  anyOptionsUsed =
+    resolvedConfig.setCloudProfile(
+      config.cloudProfile ?? null,
+      sources.cloudProfile!
+    ) || anyOptionsUsed;
   anyOptionsUsed =
     resolvedConfig.setTlsCAData(config.tlsCA ?? null, sources.tlsCA!) ||
     anyOptionsUsed;
@@ -721,7 +780,7 @@ async function resolveConfigOptions<
         creds = validateCredentials(JSON.parse(config.credentials));
         source = sources.credentials!;
       } else {
-        if (!serverUtils) {
+        if (!serverUtils && !config.instanceName?.includes("/")) {
           throw new InterfaceError(
             `cannot ${
               config.credentialsFile
@@ -732,20 +791,29 @@ async function resolveConfigOptions<
         }
         let credentialsFile = config.credentialsFile;
         if (credentialsFile === undefined) {
-          if (!/^[A-Za-z_][A-Za-z_0-9]*$/.test(config.instanceName!)) {
+          if (!/^[A-Za-z_]\w*(\/[A-Za-z_]\w*)?$/.test(config.instanceName!)) {
             throw new InterfaceError(
               `invalid DSN or instance name: '${config.instanceName}'`
             );
           }
+          if (config.instanceName!.includes("/")) {
+            await parseCloudInstanceNameIntoConfig(
+              resolvedConfig,
+              config.instanceName!,
+              sources.instanceName!,
+              serverUtils
+            );
+            return {hasCompoundOptions: true, anyOptionsUsed: true};
+          }
           credentialsFile = await getCredentialsPath(
             config.instanceName!,
-            serverUtils
+            serverUtils!
           );
           source = sources.instanceName!;
         } else {
           source = sources.credentialsFile!;
         }
-        creds = await readCredentialsFile(credentialsFile, serverUtils);
+        creds = await readCredentialsFile(credentialsFile, serverUtils!);
       }
 
       resolvedConfig.setHost(creds.host ?? null, source);
@@ -893,6 +961,13 @@ async function parseDSNIntoConfig(
     config.setPassword
   );
 
+  await handleDSNPart(
+    "secret_key",
+    null,
+    config._secretKey,
+    config.setSecretKey
+  );
+
   await handleDSNPart("tls_ca", null, config._tlsCAData, config.setTlsCAData);
 
   await handleDSNPart(
@@ -914,4 +989,76 @@ async function parseDSNIntoConfig(
     serverSettings[key] = value;
   }
   config.addServerSettings(serverSettings);
+}
+
+async function parseCloudInstanceNameIntoConfig(
+  config: ResolvedConnectConfig,
+  cloudInstanceName: string,
+  source: string,
+  serverUtils: ServerUtils | null
+): Promise<void> {
+  let secretKey = config.secretKey;
+  if (secretKey == null) {
+    try {
+      if (!serverUtils) {
+        throw new InterfaceError(
+          `Cannot get secret key from cloud profile in browser (or edge runtime) environment`
+        );
+      }
+
+      const profile = config.cloudProfile;
+      const profilePath = await serverUtils.searchConfigDir(
+        "cloud-credentials",
+        `${profile}.json`
+      );
+      const fileData = await serverUtils.readFileUtf8(profilePath);
+
+      secretKey = JSON.parse(fileData)["secret_key"];
+
+      if (!secretKey) {
+        throw new InterfaceError(
+          `Cloud profile '${profile}' doesn't contain a secret key`
+        );
+      }
+
+      config.setSecretKey(secretKey, `cloud-credentials/${profile}.json`);
+    } catch (e) {
+      throw new InterfaceError(
+        `Cannot connect to cloud instances without a secret key: ${e}`
+      );
+    }
+  }
+
+  try {
+    const keyParts = secretKey!.split(".");
+    if (keyParts.length < 2) {
+      throw new InterfaceError("Invalid secret key: does not contain payload");
+    }
+    const dnsZone = _jwtBase64Decode(keyParts[1])["iss"];
+    if (!dnsZone) {
+      throw new InterfaceError(
+        "Invalid secret key: payload does not contain 'iss' value"
+      );
+    }
+    const dnsBucket = (crcHqx(utf8Encoder.encode(cloudInstanceName), 0) % 100)
+      .toString(10)
+      .padStart(2, "0");
+    const [org, instanceName] = cloudInstanceName.split("/");
+    const host = `${instanceName}--${org}.c-${dnsBucket}.i.${dnsZone}`;
+    config.setHost(host, `resolved from 'secretKey' and ${source}`);
+  } catch (e) {
+    if (e instanceof errors.EdgeDBError) {
+      throw e;
+    } else {
+      throw new InterfaceError(`Invalid secret key: ${e}`);
+    }
+  }
+}
+
+function _jwtBase64Decode(payload: string) {
+  return JSON.parse(
+    utf8Decoder.decode(
+      decodeB64(payload.padEnd(Math.ceil(payload.length / 4) * 4, "="))
+    )
+  );
 }
