@@ -1,12 +1,24 @@
 import {process} from "./globals.deno.ts";
 
-import {path, fs, readFileUtf8, exists, hashSHA1toHex} from "./adapter.deno.ts";
+import {
+  path,
+  fs,
+  readFileUtf8,
+  exists,
+  hashSHA1toHex,
+  hasFSReadPermission
+} from "./adapter.deno.ts";
 import * as platform from "./platform.ts";
 import {getConnectArgumentsParser} from "./conUtils.ts";
 
 const projectDirCache = new Map<string, string | null>();
 
-async function findProjectDir(): Promise<string | null> {
+async function findProjectDir(
+  required: boolean = true
+): Promise<string | null> {
+  if (!required && !hasFSReadPermission()) {
+    return null;
+  }
   const workingDir = process.cwd();
 
   if (projectDirCache.has(workingDir)) {
