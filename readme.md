@@ -69,6 +69,21 @@ file from `<home-dir>/.edgedb/credentials`.
 
 ## Generating Deno Types
 
+### Prerequisites
+
+Make sure to have a `deno.json` file in the root of your project with the following content:
+
+```json
+{
+  "imports": {
+    "edgedb/": "https://deno.land/x/edgedb/",
+    "edgedb": "https://deno.land/x/edgedb/mod.ts"
+  }
+}
+```
+
+### Running the generator
+
 ```bash
 deno run --unstable "https://deno.land/x/edgedb/generate.ts" edgeql-js --target deno
 ```
