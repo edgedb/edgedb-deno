@@ -66,3 +66,9 @@ the `.edgedb` directory is located).
 
 Needed if connecting with an instance name, to read the instance credentials
 file from `<home-dir>/.edgedb/credentials`.
+
+## Generating Deno Types
+
+```bash
+deno run --unstable "https://deno.land/x/edgedb/generate.ts" edgeql-js --target deno
+```
