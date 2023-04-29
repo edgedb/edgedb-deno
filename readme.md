@@ -67,23 +67,50 @@ the `.edgedb` directory is located).
 Needed if connecting with an instance name, to read the instance credentials
 file from `<home-dir>/.edgedb/credentials`.
 
-## Generating Deno Types
+## Generating typed queries, interfaces and the QueryBuilder
+
+**Follow the up to date guide [here](https://www.edgedb.com/docs/clients/js/index)**
 
 ### Prerequisites
 
-Make sure to have a `deno.json` file in the root of your project with the following content:
+1. Create the file `importMap.json` in the root of your Deno project with the following content:
 
 ```json
 {
   "imports": {
-    "edgedb/": "https://deno.land/x/edgedb/",
-    "edgedb": "https://deno.land/x/edgedb/mod.ts"
+    "edgedb": "https://deno.land/x/edgedb/mod.ts",
+    "edgedb/": "https://deno.land/x/edgedb/"
   }
 }
 ```
 
-### Running the generator
+2. Create the file `deno.json` with the following content:
 
-```bash
-deno run --unstable "https://deno.land/x/edgedb/generate.ts" edgeql-js --target deno
+```json
+{
+  "importMap": "./importMap.json"
+}
+```
+
+
+### Generating the QueryBuilder
+
+
+```sh
+deno run --allow-all --unstable https://deno.land/x/edgedb/generate.ts edgeql-js
+```
+
+### Generating typed queries
+
+
+```sh
+deno run --allow-all --unstable https://deno.land/x/edgedb/generate.ts queries
+```
+
+
+### Generating interfaces
+
+
+```sh
+deno run --allow-all --unstable https://deno.land/x/edgedb/generate.ts interfaces
 ```
