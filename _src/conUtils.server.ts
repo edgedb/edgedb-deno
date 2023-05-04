@@ -6,10 +6,10 @@ import {
   readFileUtf8,
   exists,
   hashSHA1toHex,
-  hasFSReadPermission
+  hasFSReadPermission,
 } from "./adapter.deno.ts";
 import * as platform from "./platform.ts";
-import {getConnectArgumentsParser} from "./conUtils.ts";
+import { getConnectArgumentsParser } from "./conUtils.ts";
 
 const projectDirCache = new Map<string, string | null>();
 
@@ -58,7 +58,7 @@ export const serverUtils = {
   findProjectDir,
   findStashPath,
   readFileUtf8,
-  searchConfigDir: platform.searchConfigDir
+  searchConfigDir: platform.searchConfigDir,
 };
 
 export const parseConnectArguments = getConnectArgumentsParser(serverUtils);

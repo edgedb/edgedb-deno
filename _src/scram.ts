@@ -16,11 +16,11 @@
  * limitations under the License.
  */
 
-import {randomBytes, H, HMAC} from "./adapter.shared.deno.ts";
-import {utf8Encoder, encodeB64, decodeB64} from "./primitives/buffer.ts";
-import {ProtocolError} from "./errors/index.ts";
+import { randomBytes, H, HMAC } from "./adapter.shared.deno.ts";
+import { utf8Encoder, encodeB64, decodeB64 } from "./primitives/buffer.ts";
+import { ProtocolError } from "./errors/index.ts";
 
-export {H, HMAC};
+export { H, HMAC };
 
 const RAW_NONCE_LENGTH = 18;
 

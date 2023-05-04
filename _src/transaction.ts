@@ -15,16 +15,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import {ClientConnectionHolder} from "./baseClient.ts";
-import {BaseRawConnection} from "./baseConn.ts";
+import { ClientConnectionHolder } from "./baseClient.ts";
+import { BaseRawConnection } from "./baseConn.ts";
 import * as errors from "./errors/index.ts";
-import {Cardinality, Executor, OutputFormat, QueryArgs} from "./ifaces.ts";
+import { Cardinality, Executor, OutputFormat, QueryArgs } from "./ifaces.ts";
 
 export enum TransactionState {
   ACTIVE = 0,
   COMMITTED = 1,
   ROLLEDBACK = 2,
-  FAILED = 3
+  FAILED = 3,
 }
 
 export class Transaction implements Executor {

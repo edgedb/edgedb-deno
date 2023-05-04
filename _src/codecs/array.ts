@@ -16,12 +16,12 @@
  * limitations under the License.
  */
 
-import {ICodec, Codec, ScalarCodec, uuid, CodecKind} from "./ifaces.ts";
-import {WriteBuffer, ReadBuffer} from "../primitives/buffer.ts";
-import {TupleCodec} from "./tuple.ts";
-import {RangeCodec} from "./range.ts";
-import {InvalidArgumentError, ProtocolError} from "../errors/index.ts";
-import {NamedTupleCodec} from "./namedtuple.ts";
+import { ICodec, Codec, ScalarCodec, uuid, CodecKind } from "./ifaces.ts";
+import { WriteBuffer, ReadBuffer } from "../primitives/buffer.ts";
+import { TupleCodec } from "./tuple.ts";
+import { RangeCodec } from "./range.ts";
+import { InvalidArgumentError, ProtocolError } from "../errors/index.ts";
+import { NamedTupleCodec } from "./namedtuple.ts";
 
 export class ArrayCodec extends Codec implements ICodec {
   private subCodec: ICodec;

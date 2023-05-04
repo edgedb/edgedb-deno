@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-import {createClient} from "./browserClient.ts";
+import { createClient } from "./browserClient.ts";
 export default createClient;
 
-export {createClient, createHttpClient} from "./browserClient.ts";
+export { createClient, createHttpClient } from "./browserClient.ts";
 
 /* Private exports */
 export * from "./index.shared.ts";

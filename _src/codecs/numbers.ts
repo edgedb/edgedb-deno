@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
+import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
 import * as bi from "../primitives/bigint.ts";
-import {ICodec, ScalarCodec} from "./ifaces.ts";
-import {InvalidArgumentError} from "../errors/index.ts";
+import { ICodec, ScalarCodec } from "./ifaces.ts";
+import { InvalidArgumentError } from "../errors/index.ts";
 
 export class Int64Codec extends ScalarCodec implements ICodec {
   tsType = "number";

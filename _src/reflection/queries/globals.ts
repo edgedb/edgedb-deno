@@ -1,7 +1,7 @@
-import {Executor} from "../../ifaces.ts";
-import {Cardinality} from "../enums.ts";
-import type {UUID} from "./queryTypes.ts";
-import {StrictMap} from "../strictMap.ts";
+import { Executor } from "../../ifaces.ts";
+import { Cardinality } from "../enums.ts";
+import type { UUID } from "./queryTypes.ts";
+import { StrictMap } from "../strictMap.ts";
 
 export type Global = {
   id: UUID;

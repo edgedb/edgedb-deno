@@ -20,9 +20,9 @@
 
 /* tslint:disable */
 
-import {EdgeDBError} from "./base.ts";
+import { EdgeDBError } from "./base.ts";
 import * as tags from "./tags.ts";
-export {EdgeDBError} from "./base.ts";
+export { EdgeDBError } from "./base.ts";
 export * from "./tags.ts";
 
 export class InternalServerError extends EdgeDBError {
@@ -440,21 +440,21 @@ export class TransactionError extends ExecutionError {
 }
 
 export class TransactionConflictError extends TransactionError {
-  protected static tags = {[tags.SHOULD_RETRY]: true};
+  protected static tags = { [tags.SHOULD_RETRY]: true };
   get code(): number {
     return 0x05_03_01_00;
   }
 }
 
 export class TransactionSerializationError extends TransactionConflictError {
-  protected static tags = {[tags.SHOULD_RETRY]: true};
+  protected static tags = { [tags.SHOULD_RETRY]: true };
   get code(): number {
     return 0x05_03_01_01;
   }
 }
 
 export class TransactionDeadlockError extends TransactionConflictError {
-  protected static tags = {[tags.SHOULD_RETRY]: true};
+  protected static tags = { [tags.SHOULD_RETRY]: true };
   get code(): number {
     return 0x05_03_01_02;
   }
@@ -485,7 +485,7 @@ export class AvailabilityError extends EdgeDBError {
 }
 
 export class BackendUnavailableError extends AvailabilityError {
-  protected static tags = {[tags.SHOULD_RETRY]: true};
+  protected static tags = { [tags.SHOULD_RETRY]: true };
   get code(): number {
     return 0x08_00_00_01;
   }

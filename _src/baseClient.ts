@@ -16,29 +16,29 @@
  * limitations under the License.
  */
 
-import type {Duration} from "./datatypes/datetime.ts";
-import {CodecsRegistry} from "./codecs/registry.ts";
+import type { Duration } from "./datatypes/datetime.ts";
+import { CodecsRegistry } from "./codecs/registry.ts";
 import {
   ConnectArgumentsParser,
   ConnectConfig,
-  NormalizedConnectConfig
+  NormalizedConnectConfig,
 } from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
-import {Cardinality, Executor, OutputFormat, QueryArgs} from "./ifaces.ts";
+import { Cardinality, Executor, OutputFormat, QueryArgs } from "./ifaces.ts";
 import {
   Options,
   RetryOptions,
   Session,
   SimpleRetryOptions,
   SimpleTransactionOptions,
-  TransactionOptions
+  TransactionOptions,
 } from "./options.ts";
 import Event from "./primitives/event.ts";
-import {LifoQueue} from "./primitives/queues.ts";
-import {BaseRawConnection} from "./baseConn.ts";
-import {ConnectWithTimeout, retryingConnect} from "./retry.ts";
-import {Transaction} from "./transaction.ts";
-import {sleep} from "./utils.ts";
+import { LifoQueue } from "./primitives/queues.ts";
+import { BaseRawConnection } from "./baseConn.ts";
+import { ConnectWithTimeout, retryingConnect } from "./retry.ts";
+import { Transaction } from "./transaction.ts";
+import { sleep } from "./utils.ts";
 
 export class ClientConnectionHolder {
   private _pool: BaseClientPool;
@@ -126,7 +126,7 @@ export class ClientConnectionHolder {
       try {
         result = await Promise.race([
           action(transaction),
-          transaction._waitForConnAbort()
+          transaction._waitForConnAbort(),
         ]);
         try {
           await transaction._commit();
@@ -225,12 +225,7 @@ export class ClientConnectionHolder {
   }
 
   async queryJSON(query: string, args?: QueryArgs): Promise<string> {
-    return this.retryingFetch(
-      query,
-      args,
-      OutputFormat.JSON,
-      Cardinality.MANY
-    );
+    return this.retryingFetch(query, args, OutputFormat.JSON, Cardinality.MANY);
   }
 
   async querySingle(query: string, args?: QueryArgs): Promise<any> {
@@ -293,7 +288,7 @@ export abstract class BaseClientPool {
     this._userConcurrency = options.concurrency ?? null;
     this._suggestedConcurrency = null;
     this._closing = null;
-    this._connectConfig = {...options};
+    this._connectConfig = { ...options };
 
     this._resizeHolderPool();
   }
@@ -314,11 +309,11 @@ export abstract class BaseClientPool {
     }
   }
 
-  _getStats(): {openConnections: number; queueLength: number} {
+  _getStats(): { openConnections: number; queueLength: number } {
     return {
       queueLength: this._queue.pending,
-      openConnections: this._holders.filter(holder => holder.connectionOpen)
-        .length
+      openConnections: this._holders.filter((holder) => holder.connectionOpen)
+        .length,
     };
   }
 
@@ -445,7 +440,7 @@ export abstract class BaseClientPool {
 
     try {
       await Promise.all(
-        this._holders.map(connectionHolder =>
+        this._holders.map((connectionHolder) =>
           connectionHolder._waitUntilReleasedAndClose()
         )
       );
@@ -532,7 +527,7 @@ export class Client implements Executor {
     return new Client(this.pool, this.options.withSession(session));
   }
 
-  withModuleAliases(aliases: {[name: string]: string}) {
+  withModuleAliases(aliases: { [name: string]: string }) {
     return new Client(
       this.pool,
       this.options.withSession(this.options.session.withModuleAliases(aliases))
@@ -544,7 +539,7 @@ export class Client implements Executor {
     return new Client(this.pool, this.options.withSession(newConfig));
   }
 
-  withGlobals(globals: {[name: string]: any}): Client {
+  withGlobals(globals: { [name: string]: any }): Client {
     return new Client(
       this.pool,
       this.options.withSession(this.options.session.withGlobals(globals))

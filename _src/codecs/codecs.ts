@@ -16,21 +16,21 @@
  * limitations under the License.
  */
 
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
-import {BoolCodec} from "./boolean.ts";
-import {ICodec, uuid, Codec, CodecKind} from "./ifaces.ts";
+import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
+import { BoolCodec } from "./boolean.ts";
+import { ICodec, uuid, Codec, CodecKind } from "./ifaces.ts";
 import {
   Int16Codec,
   Int32Codec,
   Int64Codec,
   Float32Codec,
-  Float64Codec
+  Float64Codec,
 } from "./numbers.ts";
-import {BigIntCodec, DecimalStringCodec} from "./numerics.ts";
-import {StrCodec} from "./text.ts";
-import {UUIDCodec} from "./uuid.ts";
-import {BytesCodec} from "./bytes.ts";
-import {JSONCodec} from "./json.ts";
+import { BigIntCodec, DecimalStringCodec } from "./numerics.ts";
+import { StrCodec } from "./text.ts";
+import { UUIDCodec } from "./uuid.ts";
+import { BytesCodec } from "./bytes.ts";
+import { JSONCodec } from "./json.ts";
 import {
   DateTimeCodec,
   LocalDateCodec,
@@ -38,12 +38,12 @@ import {
   LocalTimeCodec,
   DurationCodec,
   RelativeDurationCodec,
-  DateDurationCodec
+  DateDurationCodec,
 } from "./datetime.ts";
-import {ConfigMemoryCodec} from "./memory.ts";
-import {InternalClientError} from "../errors/index.ts";
+import { ConfigMemoryCodec } from "./memory.ts";
+import { InternalClientError } from "../errors/index.ts";
 
-import {INVALID_CODEC_ID, KNOWN_TYPENAMES, NULL_CODEC_ID} from "./consts.ts";
+import { INVALID_CODEC_ID, KNOWN_TYPENAMES, NULL_CODEC_ID } from "./consts.ts";
 
 ///////////////////////////////////////////////////////////////////////////////
 

@@ -16,25 +16,25 @@
  * limitations under the License.
  */
 
-import {createClient} from "./_src/nodeClient.ts";
+import { createClient } from "./_src/nodeClient.ts";
 export default createClient;
 
-export {createClient, createHttpClient} from "./_src/nodeClient.ts";
+export { createClient, createHttpClient } from "./_src/nodeClient.ts";
 
 import * as adapter from "./_src/adapter.deno.ts";
-export {adapter};
+export { adapter };
 
-export {RawConnection as _RawConnection} from "./_src/rawConn.ts";
-export type {Executor} from "./_src/ifaces.ts";
-export type {Client, ConnectOptions} from "./_src/baseClient.ts";
+export { RawConnection as _RawConnection } from "./_src/rawConn.ts";
+export type { Executor } from "./_src/ifaces.ts";
+export type { Client, ConnectOptions } from "./_src/baseClient.ts";
 export {
   IsolationLevel,
   RetryCondition,
   RetryOptions,
-  Session
+  Session,
 } from "./_src/options.ts";
-export {defaultBackoff} from "./_src/options.ts";
-export type {BackoffFunction} from "./_src/options.ts";
+export { defaultBackoff } from "./_src/options.ts";
+export type { BackoffFunction } from "./_src/options.ts";
 
 export * from "./_src/index.shared.ts";
 export * as $ from "./_src/reflection/index.ts";

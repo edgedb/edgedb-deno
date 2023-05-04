@@ -16,15 +16,15 @@
  * limitations under the License.
  */
 
-import {KNOWN_TYPENAMES} from "./consts.ts";
+import { KNOWN_TYPENAMES } from "./consts.ts";
 
-import {ICodec, Codec, uuid, IArgsCodec, CodecKind} from "./ifaces.ts";
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
+import { ICodec, Codec, uuid, IArgsCodec, CodecKind } from "./ifaces.ts";
+import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
 import {
   InvalidArgumentError,
   MissingArgumentError,
   ProtocolError,
-  QueryArgumentError
+  QueryArgumentError,
 } from "../errors/index.ts";
 
 export class TupleCodec extends Codec implements ICodec, IArgsCodec {

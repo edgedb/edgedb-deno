@@ -1,6 +1,6 @@
 import {process} from "./globals.deno.ts";
 
-import {path, homeDir, exists} from "./adapter.deno.ts";
+import { path, homeDir, exists } from "./adapter.deno.ts";
 
 export const isWindows = process.platform === "win32";
 

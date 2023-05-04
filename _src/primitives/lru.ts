@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import {InternalClientError} from "../errors/index.ts";
+import { InternalClientError } from "../errors/index.ts";
 
 class Node<K, V> {
   public key: K;
@@ -151,7 +151,7 @@ export default class LRU<K, V> {
   private map: Map<K, Node<K, V>>;
   private deque: Deque<K, V>;
 
-  constructor({capacity}: LRUOptions) {
+  constructor({ capacity }: LRUOptions) {
     if (capacity <= 0) {
       throw new TypeError("capacity is expected to be greater than 0");
     }

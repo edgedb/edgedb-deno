@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
-import {WriteBuffer, ReadBuffer} from "../primitives/buffer.ts";
-import {Range} from "../datatypes/range.ts";
-import {InvalidArgumentError} from "../errors/index.ts";
+import { ICodec, Codec, uuid, CodecKind } from "./ifaces.ts";
+import { WriteBuffer, ReadBuffer } from "../primitives/buffer.ts";
+import { Range } from "../datatypes/range.ts";
+import { InvalidArgumentError } from "../errors/index.ts";
 
 enum RangeFlags {
   EMPTY = 1 << 0,

@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-import {ReadBuffer, uuidToBuffer, WriteBuffer} from "../primitives/buffer.ts";
-import {ICodec, ScalarCodec} from "./ifaces.ts";
-import {InvalidArgumentError} from "../errors/index.ts";
+import { ReadBuffer, uuidToBuffer, WriteBuffer } from "../primitives/buffer.ts";
+import { ICodec, ScalarCodec } from "./ifaces.ts";
+import { InvalidArgumentError } from "../errors/index.ts";
 
 function UUIDBufferFromString(uuid: string): Uint8Array {
   let uuidClean = uuid;

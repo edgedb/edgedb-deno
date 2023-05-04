@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import {InternalClientError} from "../errors/index.ts";
+import { InternalClientError } from "../errors/index.ts";
 
 export class LifoQueue<T> {
   private _promises: Array<Promise<T>>;

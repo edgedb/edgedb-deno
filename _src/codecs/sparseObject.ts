@@ -16,9 +16,9 @@
  * limitations under the License.
  */
 
-import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
-import {ReadBuffer, WriteBuffer} from "../primitives/buffer.ts";
-import {UnknownArgumentError} from "../errors/index.ts";
+import { ICodec, Codec, uuid, CodecKind } from "./ifaces.ts";
+import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
+import { UnknownArgumentError } from "../errors/index.ts";
 
 export class SparseObjectCodec extends Codec implements ICodec {
   private codecs: ICodec[];
@@ -42,7 +42,7 @@ export class SparseObjectCodec extends Codec implements ICodec {
           throw new UnknownArgumentError(
             this.names.length
               ? `invalid global '${key}', valid globals are ${this.names
-                  .map(n => `'${n}'`)
+                  .map((n) => `'${n}'`)
                   .join(", ")}`
               : `invalid global '${key}', no valid globals exist`
           );

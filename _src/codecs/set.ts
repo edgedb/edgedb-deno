@@ -16,10 +16,10 @@
  * limitations under the License.
  */
 
-import {ICodec, Codec, uuid, CodecKind} from "./ifaces.ts";
-import {WriteBuffer, ReadBuffer} from "../primitives/buffer.ts";
-import {ArrayCodec} from "./array.ts";
-import {InvalidArgumentError, ProtocolError} from "../errors/index.ts";
+import { ICodec, Codec, uuid, CodecKind } from "./ifaces.ts";
+import { WriteBuffer, ReadBuffer } from "../primitives/buffer.ts";
+import { ArrayCodec } from "./array.ts";
+import { InvalidArgumentError, ProtocolError } from "../errors/index.ts";
 
 export class SetCodec extends Codec implements ICodec {
   private subCodec: ICodec;

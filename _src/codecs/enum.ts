@@ -16,17 +16,13 @@
  * limitations under the License.
  */
 
-import {ICodec, uuid} from "./ifaces.ts";
-import {StrCodec} from "./text.ts";
+import { ICodec, uuid } from "./ifaces.ts";
+import { StrCodec } from "./text.ts";
 
 export class EnumCodec extends StrCodec implements ICodec {
   readonly values: string[];
 
-  constructor(
-    tid: uuid,
-    derivedFromTid: uuid | null = null,
-    values: string[]
-  ) {
+  constructor(tid: uuid, derivedFromTid: uuid | null = null, values: string[]) {
     super(tid, derivedFromTid);
     this.values = values;
   }

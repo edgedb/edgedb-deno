@@ -18,7 +18,7 @@
  * limitations under the License.
  */
 
-import {ErrorType} from "./base.ts";
+import { ErrorType } from "./base.ts";
 import * as errors from "./index.ts";
 
 export const errorMapping = new Map<number, ErrorType>();
