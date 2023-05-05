@@ -49,6 +49,9 @@ function getTlsOptions(config: ResolvedConnectConfig): tls.ConnectionOptions {
 
   const tlsOptions: tls.ConnectionOptions = {
     ALPNProtocols: ["edgedb-binary"],
+    // XXX Deno doesn't support this and that means it won't
+    // work with EdgeDB Cloud.
+    servername: config.address[0],
     rejectUnauthorized: tlsSecurity !== "insecure",
   };
 
@@ -363,7 +366,7 @@ export class RawConnection extends BaseRawConnection {
       database: this.config.connectionParams.database,
     };
     if (this.config.connectionParams.secretKey != null) {
-      params["token"] = this.config.connectionParams.secretKey;
+      params["secret_key"] = this.config.connectionParams.secretKey;
     }
 
     handshake.writeInt16(Object.keys(params).length);
