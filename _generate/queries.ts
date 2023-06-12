@@ -1,11 +1,8 @@
-// tslint:disable
-import {createClient, adapter, $} from "../mod.ts";
-import type {ConnectConfig} from "../_src/conUtils.ts";
-import type {CommandOptions} from "./commandutil.ts";
-// import {$} from "./codecToType";
-// import type {QueryType} from "./codecToType";
-import type {Target} from "./genutil.ts";
-import {Cardinality} from "../_src/ifaces.ts";
+import { $, adapter, createClient, createHttpClient } from "../mod.ts";
+import type { ConnectConfig } from "../_src/conUtils.ts";
+import { Cardinality } from "../_src/ifaces.ts";
+import { type CommandOptions, getPackageVersion } from "./commandutil.ts";
+import type { Target } from "./genutil.ts";
 
 // generate per-file queries
 // generate queries in a single file
@@ -20,8 +17,6 @@ export async function generateQueryFiles(params: {
 currently supported.`);
   }
 
-  // console.log(`Detecting project root...`);
-
   const noRoot = !params.root;
   const root = params.root ?? adapter.process.cwd();
   if (noRoot) {
@@ -34,15 +29,24 @@ currently supported.`);
     console.log(`Detected project root via edgedb.toml:`);
     console.log("   " + params.root);
   }
-  const client = createClient({
+
+  const cxnCreatorFn = params.options.useHttpClient
+    ? createHttpClient
+    : createClient;
+  const client = cxnCreatorFn({
     ...params.connectionConfig,
-    concurrency: 5
+    concurrency: 5,
   });
 
   // file mode: introspect all queries and generate one file
   // generate one query per file
 
   const matches = await getMatches(root);
+  if (matches.length === 0) {
+    console.log(`No .edgeql files found in project`);
+    adapter.exit();
+    return;
+  }
 
   console.log(`Connecting to database...`);
   await client.ensureConnected();
@@ -54,69 +58,94 @@ currently supported.`);
     const filesByExtension: {
       [k: string]: ReturnType<typeof generateFiles>[number];
     } = {};
-    for (const path of matches) {
-      const prettyPath = "./" + adapter.path.posix.relative(root, path);
-      console.log(`   ${prettyPath}`);
-      const query = await adapter.readFileUtf8(path);
-      const types = await $.analyzeQuery(client, query);
-      const files = await generateFiles({
-        target: params.options.target!,
-        path,
-        types
-      });
-      for (const f of files) {
-        if (!filesByExtension[f.extension]) {
-          filesByExtension[f.extension] = f;
-        } else {
-          filesByExtension[f.extension].contents += `\n\n` + f.contents;
-          filesByExtension[f.extension].imports = {
-            ...filesByExtension[f.extension].imports,
-            ...f.imports
-          };
+    let wasError = false;
+    await Promise.all(
+      matches.map(async (path) => {
+        const prettyPath = "./" + adapter.path.posix.relative(root, path);
+
+        try {
+          const query = await adapter.readFileUtf8(path);
+          const types = await $.analyzeQuery(client, query);
+          console.log(`   ${prettyPath}`);
+          const files = generateFiles({
+            target: params.options.target!,
+            path,
+            types,
+          });
+          for (const f of files) {
+            if (!filesByExtension[f.extension]) {
+              filesByExtension[f.extension] = f;
+            } else {
+              filesByExtension[f.extension].contents += `\n\n` + f.contents;
+              filesByExtension[f.extension].imports = {
+                ...filesByExtension[f.extension].imports,
+                ...f.imports,
+              };
+            }
+          }
+        } catch (err) {
+          wasError = true;
+          console.log(
+            `Error in file '${prettyPath}': ${(err as Error).toString()}`
+          );
         }
-      }
-    }
-    console.log(
-      `Generating query file${
-        Object.keys(filesByExtension).length > 1 ? "s" : ""
-      }...`
+      })
     );
-    for (const [extension, file] of Object.entries(filesByExtension)) {
-      const filePath =
-        (adapter.path.isAbsolute(params.options.file)
-          ? params.options.file
-          : adapter.path.join(
-              adapter.process.cwd(), // all paths computed relative to cwd
-              params.options.file
-            )) + extension;
-      const prettyPath = adapter.path.isAbsolute(params.options.file)
-        ? params.options.file + extension
-        : "./" + adapter.path.posix.relative(root, filePath);
-      console.log(`   ${prettyPath}`);
-      await adapter.fs.writeFile(
-        filePath,
-        `${stringifyImports(file.imports)}\n\n${file.contents}`
+    if (!wasError) {
+      console.log(
+        `Generating query file${
+          Object.keys(filesByExtension).length > 1 ? "s" : ""
+        }...`
       );
+      for (const [extension, file] of Object.entries(filesByExtension)) {
+        const filePath =
+          (adapter.path.isAbsolute(params.options.file)
+            ? params.options.file
+            : adapter.path.join(
+                adapter.process.cwd(), // all paths computed relative to cwd
+                params.options.file
+              )) + extension;
+        const prettyPath = adapter.path.isAbsolute(params.options.file)
+          ? params.options.file + extension
+          : "./" + adapter.path.posix.relative(root, filePath);
+        console.log(`   ${prettyPath}`);
+        await adapter.fs.writeFile(
+          filePath,
+          `// GENERATED by @edgedb/generate v${getPackageVersion()}\n` +
+            `// Run 'npx @edgedb/generate queries --file' to re-generate\n\n` +
+            `${stringifyImports(file.imports)}\n\n${file.contents}`
+        );
+      }
     }
     adapter.exit();
     return;
   }
 
   async function generateFilesForQuery(path: string) {
-    const query = await adapter.readFileUtf8(path);
-    if (!query) return;
-    const types = await $.analyzeQuery(client, query);
-    const files = await generateFiles({
-      target: params.options.target!,
-      path,
-      types
-    });
-    for (const f of files) {
-      const prettyPath = "./" + adapter.path.posix.relative(root, f.path);
-      console.log(`   ${prettyPath}`);
-      await adapter.fs.writeFile(
-        f.path,
-        `${stringifyImports(f.imports)}\n\n${f.contents}`
+    try {
+      const query = await adapter.readFileUtf8(path);
+      if (!query) return;
+      const types = await $.analyzeQuery(client, query);
+      const files = generateFiles({
+        target: params.options.target!,
+        path,
+        types,
+      });
+      for (const f of files) {
+        const prettyPath = "./" + adapter.path.posix.relative(root, f.path);
+        console.log(`   ${prettyPath}`);
+        await adapter.fs.writeFile(
+          f.path,
+          `// GENERATED by @edgedb/generate v${getPackageVersion()}\n` +
+            `// Run 'npx @edgedb/generate queries' to re-generate\n\n` +
+            `${stringifyImports(f.imports)}\n\n${f.contents}`
+        );
+      }
+    } catch (err) {
+      console.log(
+        `Error in file './${adapter.path.posix.relative(root, path)}': ${(
+          err as any
+        ).toString()}`
       );
     }
   }
@@ -124,9 +153,6 @@ currently supported.`);
   // generate per-query files
   console.log(`Generating files for following queries:`);
   await Promise.all(matches.map(generateFilesForQuery));
-  // for (const path of matches) {
-  //   await generateFilesForQuery(path)
-  // }
 
   if (!params.options.watch) {
     adapter.exit();
@@ -138,7 +164,7 @@ currently supported.`);
   //   generate output file
 }
 
-function stringifyImports(imports: {[k: string]: boolean}) {
+function stringifyImports(imports: { [k: string]: boolean }) {
   if (Object.keys(imports).length === 0) return "";
   return `import type {${Object.keys(imports).join(", ")}} from "edgedb";`;
 }
@@ -146,12 +172,8 @@ function stringifyImports(imports: {[k: string]: boolean}) {
 async function getMatches(root: string) {
   return adapter.walk(root, {
     match: [/[^\/]\.edgeql$/],
-    skip: [/node_modules/, /dbschema\/migrations/]
+    skip: [/node_modules/, RegExp(`dbschema\\${adapter.path.sep}migrations`)],
   });
-  // return globby.globby("**/*.edgeql", {
-  //   cwd: root,
-  //   followSymbolicLinks: true
-  // });
 }
 
 // const targetToExtension: {[k in Target]: string} = {
@@ -162,7 +184,7 @@ async function getMatches(root: string) {
 //   ts: `.ts`
 // };
 
-type QueryType = Awaited<ReturnType<typeof $["analyzeQuery"]>>;
+type QueryType = Awaited<ReturnType<(typeof $)["analyzeQuery"]>>;
 
 function generateFiles(params: {
   target: Target;
@@ -171,105 +193,121 @@ function generateFiles(params: {
 }): {
   path: string;
   contents: string;
-  imports: {[k: string]: boolean};
+  imports: { [k: string]: boolean };
   extension: string;
 }[] {
   const queryFileName = adapter.path.basename(params.path);
-  // client.query; Cardinality.MANY;Cardinality.AT_LEAST_ONE;
-  // client.querySingle; Cardinality.AT_MOST_ONE
-  // client.queryRequiredSingle; Cardinality.ONE;
+  const baseFileName = queryFileName.replace(/\.edgeql$/, "");
+  const outputBaseFileName = `${baseFileName}.query`;
+
   const method =
     params.types.cardinality === Cardinality.ONE
       ? "queryRequiredSingle"
       : params.types.cardinality === Cardinality.AT_MOST_ONE
       ? "querySingle"
       : "query";
-  const functionName = queryFileName.replace(".edgeql", "");
+  const functionName = baseFileName
+    .replace(/-[A-Za-z]/g, (m) => m[1].toUpperCase())
+    .replace(/^[^A-Za-z_]|\W/g, "_");
+  const interfaceName =
+    functionName.charAt(0).toUpperCase() + functionName.slice(1);
+  const argsInterfaceName = `${interfaceName}Args`;
+  const returnsInterfaceName = `${interfaceName}Returns`;
+  const hasArgs = params.types.args && params.types.args !== "null";
+  const queryDefs = `\
+${hasArgs ? `export type ${argsInterfaceName} = ${params.types.args};\n` : ""}
+export type ${returnsInterfaceName} = ${params.types.result};\
+`;
+  const functionBody = `\
+${params.types.query.trim().replace(/`/g, "\\`")}\`${hasArgs ? `, args` : ""});
+`;
   const imports: any = {};
   for (const i of params.types.imports) {
     imports[i] = true;
   }
-  const tsImports = {Client: true, ...imports};
+  const tsImports = { Executor: true, ...imports };
 
-  const hasArgs = params.types.args && params.types.args !== "null";
-  const tsImpl = `async function ${functionName}(client: Client${
-    hasArgs ? `, args: ${params.types.args}` : ""
-  }): Promise<${params.types.result}> {
-  return client.${method}(\`${params.types.query.replace("`", "`")}\`${
-    hasArgs ? `, args` : ""
-  });
-}`;
+  const tsImpl = `${queryDefs}
+
+export async function ${functionName}(client: Executor${
+    hasArgs ? `, args: ${argsInterfaceName}` : ""
+  }): Promise<${returnsInterfaceName}> {
+  return client.${method}(\`\\
+${functionBody}
+}
+`;
 
   const jsImpl = `async function ${functionName}(client${
     hasArgs ? `, args` : ""
   }) {
-  return client.${method}(\`${params.types.query.replace("`", "`")}\`${
-    hasArgs ? `, args` : ""
-  });
+  return client.${method}(\`\\
+${functionBody}
 }`;
 
-  const dtsImpl = `function ${functionName}(client: Client${
-    hasArgs ? `, args: ${params.types.args}` : ""
-  }): Promise<${params.types.result}>;`;
+  const dtsImpl = `${queryDefs}
+
+export function ${functionName}(client: Executor${
+    hasArgs ? `, args: ${argsInterfaceName}` : ""
+  }): Promise<${returnsInterfaceName}>;`;
 
   switch (params.target) {
     case "cjs":
       return [
         {
-          path: `${params.path}.js`,
+          path: `${outputBaseFileName}.js`,
           contents: `${jsImpl}\n\nmodule.exports.${functionName} = ${functionName};`,
           imports: {},
-          extension: ".js"
+          extension: ".js",
         },
         {
-          path: `${params.path}.d.ts`,
-          contents: `export ${dtsImpl}`,
+          path: `${outputBaseFileName}.d.ts`,
+          contents: dtsImpl,
           imports: tsImports,
-          extension: ".d.ts"
-        }
+          extension: ".d.ts",
+        },
       ];
 
     case "deno":
       return [
         {
-          path: `${params.path}.ts`,
-          contents: `export ${tsImpl}`,
+          path: `${outputBaseFileName}.ts`,
+          contents: tsImpl,
           imports: tsImports,
-          extension: ".ts"
-        }
+          extension: ".ts",
+        },
       ];
     case "esm":
       return [
         {
-          path: `${params.path}.mjs`,
+          path: `${outputBaseFileName}.mjs`,
           contents: `export ${jsImpl}`,
           imports: {},
-          extension: ".mjs"
+          extension: ".mjs",
         },
         {
-          path: `${params.path}.d.ts`,
-          contents: `export ${dtsImpl}`,
+          path: `${outputBaseFileName}.d.ts`,
+          contents: dtsImpl,
           imports: tsImports,
-          extension: ".d.ts"
-        }
+          extension: ".d.ts",
+        },
       ];
     case "mts":
       return [
         {
-          path: `${params.path}.mts`,
-          contents: `export ${tsImpl}`,
+          path: `${outputBaseFileName}.mts`,
+          contents: tsImpl,
           imports: tsImports,
-          extension: ".mts"
-        }
+          extension: ".mts",
+        },
       ];
     case "ts":
       return [
         {
-          path: `${params.path}.ts`,
-          contents: `export ${tsImpl}`,
+          path: `${outputBaseFileName}.ts`,
+          contents: tsImpl,
           imports: tsImports,
-          extension: ".ts"
-        }
+          extension: ".ts",
+        },
       ];
   }
 }

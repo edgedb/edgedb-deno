@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 
 // tslint:disable:no-console
-import {adapter} from "../mod.ts";
-import {exitWithError, Target} from "./genutil.ts";
+import { adapter } from "../mod.ts";
+import { exitWithError, Target } from "./genutil.ts";
 
 export interface CommandOptions {
   showHelp?: boolean;
@@ -14,9 +14,10 @@ export interface CommandOptions {
   passwordFromStdin?: boolean;
   forceOverwrite?: boolean;
   updateIgnoreFile?: boolean;
+  useHttpClient?: boolean;
 }
 
-const {input} = adapter;
+const { input } = adapter;
 
 export function isTTY() {
   return adapter.process.stdin.isTTY && adapter.process.stdout.isTTY;
@@ -60,7 +61,7 @@ export async function promptForPassword(username: string) {
     );
   }
 
-  return await input(`Password for '${username}': `, {silent: true});
+  return await input(`Password for '${username}': `, { silent: true });
 }
 
 export function readPasswordFromStdin() {
@@ -68,9 +69,13 @@ export function readPasswordFromStdin() {
     exitWithError(`Cannot read password from stdin: stdin is a TTY.`);
   }
 
-  return new Promise<string>(resolve => {
+  return new Promise<string>((resolve) => {
     let data = "";
-    adapter.process.stdin.on("data", chunk => (data += chunk));
+    adapter.process.stdin.on("data", (chunk) => (data += chunk));
     adapter.process.stdin.on("end", () => resolve(data.trimEnd()));
   });
+}
+
+export function getPackageVersion(): string {
+  return "__@edgedb/generate__VERSION_PLACEHOLDER__";
 }

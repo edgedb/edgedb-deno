@@ -1,16 +1,16 @@
-import {dts, r, t} from "../builders.ts";
-import type {GeneratorParams} from "../genutil.ts";
+import { dts, r, t } from "../builders.ts";
+import type { GeneratorParams } from "../genutil.ts";
 import * as genutil from "../genutil.ts";
 
 export function generateIndex(params: GeneratorParams) {
   /////////////////////////
   // generate index file
   /////////////////////////
-  const {dir} = params;
+  const { dir } = params;
   const index = dir.getPath("index");
   // index.addExportStar(null, "./castMaps", true);
   index.addExportStar("./external", {
-    allowFileExt: true
+    allowFileExt: true,
   });
   // index.addExportStar("./types", {
   //   allowFileExt: true,
@@ -18,14 +18,14 @@ export function generateIndex(params: GeneratorParams) {
   // });
 
   index.addImportStar("$", "./reflection");
-  index.addExportFrom({createClient: true}, "edgedb");
-  index.addImportStar("$syntax", "./syntax", {allowFileExt: true});
-  index.addImportStar("$op", "./operators", {allowFileExt: true});
+  index.addExportFrom({ createClient: true }, "edgedb");
+  index.addImportStar("$syntax", "./syntax", { allowFileExt: true });
+  index.addImportStar("$op", "./operators", { allowFileExt: true });
 
   const spreadModules = [
     {
       name: "$op",
-      keys: ["op"]
+      keys: ["op"],
     },
     {
       name: "$syntax",
@@ -48,24 +48,28 @@ export function generateIndex(params: GeneratorParams) {
         "set",
         "tuple",
         "with",
-        "withParams"
-      ]
+        "withParams",
+      ],
     },
     {
       name: "_default",
-      module: dir.getModule("default")
+      module: dir.getModule("default"),
     },
-    {name: "_std", module: dir.getModule("std")}
+    { name: "_std", module: dir.getModule("std") },
   ];
-  const excludedKeys = new Set<string>(dir._modules.keys());
+
+  const topLevelModules = new Map(
+    [...dir._modules.entries()].filter(([_, path]) => path.length === 1)
+  );
+  const excludedKeys = new Set<string>(topLevelModules.keys());
 
   const spreadTypes: string[] = [];
-  for (let {name, keys, module} of spreadModules) {
+  for (let { name, keys, module } of spreadModules) {
     if (module?.isEmpty()) {
       continue;
     }
     keys = keys ?? module!.getDefaultExportKeys();
-    const conflictingKeys = keys.filter(key => excludedKeys.has(key));
+    const conflictingKeys = keys.filter((key) => excludedKeys.has(key));
     let typeStr: string;
     if (conflictingKeys.length) {
       typeStr = `Omit<typeof ${name}, ${conflictingKeys
@@ -86,36 +90,36 @@ export function generateIndex(params: GeneratorParams) {
   index.writeln([
     dts`declare `,
     `const ExportDefault`,
-    t`: ${spreadTypes.reverse().join(" & \n  ")} & {`
+    t`: ${spreadTypes.reverse().join(" & \n  ")} & {`,
   ]);
   index.indented(() => {
-    for (const [moduleName, internalName] of dir._modules) {
+    for (const [moduleName, internalName] of topLevelModules) {
       if (dir.getModule(moduleName).isEmpty()) continue;
       index.writeln([
-        t`${genutil.quote(moduleName)}: typeof _${internalName};`
+        t`${genutil.quote(moduleName)}: typeof _${internalName};`,
       ]);
     }
   });
 
   index.writeln([t`}`, r` = {`]);
   index.indented(() => {
-    for (const {name, module} of [...spreadModules].reverse()) {
+    for (const { name, module } of [...spreadModules].reverse()) {
       if (module?.isEmpty()) {
         continue;
       }
       index.writeln([
         r`...${
           name === "$syntax" ? `$.util.omitDollarPrefixed($syntax)` : name
-        },`
+        },`,
       ]);
     }
 
-    for (const [moduleName, internalName] of dir._modules) {
+    for (const [moduleName, internalName] of topLevelModules) {
       if (dir.getModule(moduleName).isEmpty()) {
         continue;
       }
       index.addImportDefault(`_${internalName}`, `./modules/${internalName}`, {
-        allowFileExt: true
+        allowFileExt: true,
       });
 
       index.writeln([r`${genutil.quote(moduleName)}: _${internalName},`]);
@@ -134,6 +138,6 @@ export function generateIndex(params: GeneratorParams) {
     t`type Set<
   Type extends $.BaseType,
   Card extends $.Cardinality = $.Cardinality.Many
-> = $.TypeSet<Type, Card>;`
+> = $.TypeSet<Type, Card>;`,
   ]);
 }

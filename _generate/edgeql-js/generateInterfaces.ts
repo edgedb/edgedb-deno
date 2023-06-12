@@ -1,51 +1,80 @@
-import {CodeBuffer, js, t} from "../builders.ts";
-import type {GeneratorParams} from "../genutil.ts";
-import {$} from "../genutil.ts";
-import {makePlainIdent, quote, splitName, toTSScalarType} from "../genutil.ts";
+import { CodeBuffer, js, t } from "../builders.ts";
+import type { GeneratorParams } from "../genutil.ts";
+import { $ } from "../genutil.ts";
+import { makePlainIdent, quote, splitName, toTSScalarType } from "../genutil.ts";
 
 export type GenerateInterfacesParams = Pick<GeneratorParams, "dir" | "types">;
 
+interface ModuleData {
+  name: string;
+  internalName: string;
+  fullInternalName: string;
+  buf: CodeBuffer;
+  types: Map<string, string>;
+  isRoot: boolean;
+  nestedModules: Map<string, ModuleData>;
+}
+
 export const generateInterfaces = (params: GenerateInterfacesParams) => {
-  const {dir, types} = params;
+  const { dir, types } = params;
 
   const plainTypesCode = dir.getPath("interfaces");
   plainTypesCode.addImportStar("edgedb", "edgedb", {
-    typeOnly: true
+    typeOnly: true,
   });
-  const plainTypeModules = new Map<
-    string,
-    {internalName: string; buf: CodeBuffer; types: Map<string, string>}
-  >();
+  const plainTypeModules = new Map<string, ModuleData>();
+
+  const getModule = (mod: string): ModuleData => {
+    let module = plainTypeModules.get(mod);
+
+    if (!module) {
+      const modParts = mod.split("::");
+      const modName = modParts[modParts.length - 1];
+      const parentModName = modParts.slice(0, -1).join("::");
+      const parent = parentModName ? getModule(parentModName) : null;
+      const internalName =
+        modName === "default" && !parentModName ? "" : makePlainIdent(modName);
+
+      module = {
+        name: modName,
+        internalName,
+        fullInternalName:
+          (parent?.fullInternalName ? parent.fullInternalName + "." : "") +
+          internalName,
+        buf: new CodeBuffer(),
+        types: new Map(),
+        isRoot: !parentModName,
+        nestedModules: new Map(),
+      };
+      plainTypeModules.set(mod, module);
+
+      if (parent) {
+        parent.nestedModules.set(modName, module);
+      }
+    }
+
+    return module;
+  };
 
   const getPlainTypeModule = (
     typeName: string
   ): {
     tMod: string;
     tName: string;
-    module: {
-      internalName: string;
-      buf: CodeBuffer;
-      types: Map<string, string>;
-    };
+    module: ModuleData;
   } => {
-    const {mod: tMod, name: tName} = splitName(typeName);
-    if (!plainTypeModules.has(tMod)) {
-      plainTypeModules.set(tMod, {
-        internalName: makePlainIdent(tMod),
-        buf: new CodeBuffer(),
-        types: new Map()
-      });
-    }
-    return {tMod, tName, module: plainTypeModules.get(tMod)!};
+    const { mod: tMod, name: tName } = splitName(typeName);
+
+    return { tMod, tName, module: getModule(tMod) };
   };
 
   const _getTypeName =
     (mod: string) =>
     (typeName: string, withModule: boolean = false): string => {
-      const {tMod, tName, module} = getPlainTypeModule(typeName);
+      const { tMod, tName, module } = getPlainTypeModule(typeName);
       return (
         ((mod !== tMod || withModule) && tMod !== "default"
-          ? `${module.internalName}.`
+          ? `${module.fullInternalName}.`
           : "") + `${makePlainIdent(tName)}`
       );
     };
@@ -53,53 +82,29 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
   for (const type of types.values()) {
     if (type.kind === "scalar" && type.enum_values?.length) {
       // generate plain enum type
-      const {mod: enumMod, name: enumName} = splitName(type.name);
+      const { mod: enumMod, name: enumName } = splitName(type.name);
       const getEnumTypeName = _getTypeName(enumMod);
 
-      const {module} = getPlainTypeModule(type.name);
+      const { module } = getPlainTypeModule(type.name);
       module.types.set(enumName, getEnumTypeName(type.name, true));
-      module.buf.writeln(
-        [
-          t`export type ${getEnumTypeName(type.name)} = ${type.enum_values
-            .map(val => quote(val))
-            .join(" | ")};`
-        ]
-        // ...type.enum_values.map(val => [t`${quote(val)}`]).join(" | "),
-        // [t`}`]
-      );
-
-      // if (enumMod === "default") {
-      //   module.buf.writeln(
-      //     [js`const ${getEnumTypeName(type.name)} = {`],
-      //     ...type.enum_values.map(val => [
-      //       js`  ${makePlainIdent(val)}: ${quote(val)},`
-      //     ]),
-      //     [js`}`]
-      //   );
-      //   plainTypesCode.addExport(getEnumTypeName(type.name), {
-      //     modes: ["js"]
-      //   });
-      // } else {
-      //   module.buf.writeln(
-      //     [js`"${getEnumTypeName(type.name)}": {`],
-      //     ...type.enum_values.map(val => [
-      //       js`  ${makePlainIdent(val)}: ${quote(val)},`
-      //     ]),
-      //     [js`},`]
-      //   );
-      // }
+      module.buf.writeln([
+        t`export type ${getEnumTypeName(type.name)} = ${type.enum_values
+          .map((val) => quote(val))
+          .join(" | ")};`,
+      ]);
     }
     if (type.kind !== "object") {
       continue;
     }
-    if (
-      (type.union_of && type.union_of.length) ||
-      (type.intersection_of && type.intersection_of.length)
-    ) {
+
+    const isUnionType = Boolean(type.union_of?.length);
+    const isIntersectionType = Boolean(type.intersection_of?.length);
+
+    if (isIntersectionType) {
       continue;
     }
 
-    const {mod, name} = splitName(type.name);
+    const { mod, name } = splitName(type.name);
     const body = dir.getModule(mod);
     body.registerRef(type.name, type.id);
 
@@ -111,28 +116,39 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
 
     const getTSType = (pointer: $.introspect.Pointer): string => {
       const targetType = types.get(pointer.target_id);
-      if (pointer.kind === "link") {
+      const isLink = pointer.kind === "link";
+      const isUnion =
+        isLink &&
+        targetType.kind === "object" &&
+        Boolean(targetType.union_of?.length);
+
+      if (isUnion) {
+        return targetType.union_of
+          .map(({ id }) => types.get(id))
+          .map((member) => getTypeName(member.name))
+          .join(" | ");
+      } else if (isLink) {
         return getTypeName(targetType.name);
       } else {
-        return toTSScalarType(
-          targetType as $.introspect.PrimitiveType,
-          types,
-          {
-            getEnumRef: enumType => getTypeName(enumType.name),
-            edgedbDatatypePrefix: ""
-          }
-        ).join("");
+        return toTSScalarType(targetType as $.introspect.PrimitiveType, types, {
+          getEnumRef: (enumType) => getTypeName(enumType.name),
+          edgedbDatatypePrefix: "",
+        }).join("");
       }
     };
 
-    const {module: plainTypeModule} = getPlainTypeModule(type.name);
-    const pointers = type.pointers.filter(ptr => ptr.name !== "__type__");
-    plainTypeModule.types.set(name, getTypeName(type.name, true));
+    const { module: plainTypeModule } = getPlainTypeModule(type.name);
+    const pointers = type.pointers.filter((ptr) => ptr.name !== "__type__");
+
+    if (!isUnionType) {
+      plainTypeModule.types.set(name, getTypeName(type.name, true));
+    }
+
     plainTypeModule.buf.writeln([
-      t`export interface ${getTypeName(type.name)}${
+      t`${isUnionType ? "" : "export "}interface ${getTypeName(type.name)}${
         type.bases.length
           ? ` extends ${type.bases
-              .map(({id}) => {
+              .map(({ id }) => {
                 const baseType = types.get(id);
                 return getTypeName(baseType.name);
               })
@@ -141,7 +157,7 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
       } ${
         pointers.length
           ? `{\n${pointers
-              .map(pointer => {
+              .map((pointer) => {
                 const isOptional = pointer.card === $.Cardinality.AtMostOne;
                 return `  ${quote(pointer.name)}${
                   isOptional ? "?" : ""
@@ -154,49 +170,71 @@ export const generateInterfaces = (params: GenerateInterfacesParams) => {
               })
               .join("\n")}\n}`
           : "{}"
-      }\n`
+      }\n`,
     ]);
   }
 
   // plain types export
   const plainTypesExportBuf = new CodeBuffer();
-  for (const [moduleName, module] of plainTypeModules) {
-    if (moduleName === "default") {
-      plainTypesCode.writeBuf(module.buf);
-    } else {
+
+  const writeModuleExports = (module: ModuleData) => {
+    const wrapInNamespace = !(module.isRoot && module.name === "default");
+    if (wrapInNamespace) {
       plainTypesCode.writeln([t`export namespace ${module.internalName} {`]);
       plainTypesCode.writeln([js`const ${module.internalName} = {`]);
-      plainTypesCode.indented(() => plainTypesCode.writeBuf(module.buf));
-      plainTypesCode.writeln([t`}`]);
-      plainTypesCode.writeln([js`}`]);
-      plainTypesCode.addExport(module.internalName, {modes: ["js"]});
+      plainTypesCode.increaseIndent();
     }
 
-    plainTypesExportBuf.writeln([
-      t`  ${quote(moduleName)}: {\n${[...module.types.entries()]
-        .map(([name, typeName]) => `    ${quote(name)}: ${typeName};`)
-        .join("\n")}\n  };`
-    ]);
+    plainTypesCode.writeBuf(module.buf);
+
+    plainTypesExportBuf.writeln([t`${quote(module.name)}: {`]);
+    plainTypesExportBuf.increaseIndent();
+    for (const [name, typeName] of module.types) {
+      plainTypesExportBuf.writeln([t`${quote(name)}: ${typeName};`]);
+    }
+
+    for (const nestedMod of module.nestedModules.values()) {
+      writeModuleExports(nestedMod);
+    }
+
+    plainTypesExportBuf.decreaseIndent();
+    plainTypesExportBuf.writeln([t`};`]);
+
+    if (wrapInNamespace) {
+      plainTypesCode.decreaseIndent();
+      plainTypesCode.writeln([t`}`]);
+      plainTypesCode.writeln([js`}`]);
+      plainTypesCode.addExport(module.internalName, { modes: ["js"] });
+    }
+  };
+
+  for (const module of [...plainTypeModules.values()].filter(
+    (mod) => mod.isRoot
+  )) {
+    writeModuleExports(module);
   }
+
   plainTypesCode.writeln([t`export interface types {`]);
-  plainTypesCode.writeBuf(plainTypesExportBuf);
+  plainTypesCode.indented(() => plainTypesCode.writeBuf(plainTypesExportBuf));
   plainTypesCode.writeln([t`}`]);
 
   plainTypesCode.writeln([
     t`
 
 export namespace helper {
+  type LinkType = std.BaseObject | std.BaseObject[];
+
   export type propertyKeys<T> = {
-    [k in keyof T]: NonNullable<T[k]> extends object ? never : k;
+    [k in keyof T]: NonNullable<T[k]> extends LinkType ? never : k;
   }[keyof T];
 
   export type linkKeys<T> = {
-    [k in keyof T]: NonNullable<T[k]> extends object ? k : never;
+    [k in keyof T]: NonNullable<T[k]> extends LinkType ? k : never;
   }[keyof T];
 
   export type Props<T> = Pick<T, propertyKeys<T>>;
   export type Links<T> = Pick<T, linkKeys<T>>;
 }
-`
+`,
   ]);
 };

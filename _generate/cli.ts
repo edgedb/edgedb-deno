@@ -1,27 +1,33 @@
 #!/usr/bin/env node
 
 // tslint:disable:no-console
-import {adapter} from "../mod.ts";
+import { adapter } from "../mod.ts";
 
-import {ConnectConfig, validTlsSecurityValues} from "../_src/conUtils.ts";
-import {parseConnectArguments} from "../_src/conUtils.server.ts";
+import { ConnectConfig, validTlsSecurityValues } from "../_src/conUtils.ts";
+import { parseConnectArguments } from "../_src/conUtils.server.ts";
 import {
   CommandOptions,
   promptForPassword,
-  readPasswordFromStdin
+  readPasswordFromStdin,
 } from "./commandutil.ts";
-import {generateQueryBuilder} from "./edgeql-js.ts";
-import {runInterfacesGenerator} from "./interfaces.ts";
-import {exitWithError} from "./genutil.ts";
-import {generateQueryFiles} from "./queries.ts";
+import { generateQueryBuilder } from "./edgeql-js.ts";
+import { runInterfacesGenerator } from "./interfaces.ts";
+import { exitWithError } from "./genutil.ts";
+import { generateQueryFiles } from "./queries.ts";
 
-const {path, readFileUtf8, exists} = adapter;
+const { path, readFileUtf8, exists } = adapter;
 
 enum Generator {
   QueryBuilder = "edgeql-js",
   Queries = "queries",
-  Interfaces = "interfaces"
+  Interfaces = "interfaces",
 }
+
+const availableGeneratorsHelp = `
+Available generators:
+ - edgeql-js (query builder)
+ - queries (query files)
+ - interfaces`;
 
 const run = async () => {
   const args = adapter.process.argv.slice(2);
@@ -36,13 +42,13 @@ const run = async () => {
   }
   if (!generator || generator[0] === "-") {
     console.error(
-      `Error: No generator specified.\n  \`npx @edgedb/generate <generator>\`\nAvailable generators:\n - edgeql-js (query builder)\n - queries (query files)`
+      `Error: No generator specified.\n  \`npx @edgedb/generate <generator>\`${availableGeneratorsHelp}`
     );
     adapter.exit();
   }
   if (!Object.values(Generator).includes(generator)) {
     console.error(
-      `Error: Invalid generator "${generator}". Available generators:\n - edgeql-js (query builder)\n - queries (query files)`
+      `Error: Invalid generator "${generator}".${availableGeneratorsHelp}`
     );
     adapter.exit();
   }
@@ -137,11 +143,14 @@ const run = async () => {
         if (!validTlsSecurityValues.includes(tlsSec)) {
           exitWithError(
             `Invalid value for --tls-security. Must be one of: ${validTlsSecurityValues
-              .map(x => `"${x}"`)
+              .map((x) => `"${x}"`)
               .join(" | ")}`
           );
         }
         connectionConfig.tlsSecurity = tlsSec;
+        break;
+      case "--use-http-client":
+        options.useHttpClient = true;
         break;
       case "--target":
         if (generator === Generator.Interfaces) {
@@ -166,7 +175,8 @@ const run = async () => {
           generator === Generator.Queries
         ) {
           exitWithError(
-            `--output-dir is not supported for generator "${generator}"`
+            `--output-dir is not supported for generator "${generator}"` +
+              `, consider using the --file option instead`
           );
         }
         options.out = getVal();
@@ -182,7 +192,8 @@ const run = async () => {
           }
         } else {
           exitWithError(
-            `Flag --file not supported for generator "${generator}"`
+            `Flag --file not supported for generator "${generator}"` +
+              `, consider using the --output-dir option instead`
           );
         }
 
@@ -275,7 +286,7 @@ Run this command inside an EdgeDB project directory or specify the desired targe
     const denoConfigPath = path.join(projectRoot, "deno.json");
     const denoJsonExists = await exists(denoConfigPath);
 
-    let packageJson: {type: string} | null = null;
+    let packageJson: { type: string } | null = null;
     const pkgJsonPath = path.join(projectRoot, "package.json");
     if (await exists(pkgJsonPath)) {
       packageJson = JSON.parse(await readFileUtf8(pkgJsonPath));
@@ -285,10 +296,15 @@ Run this command inside an EdgeDB project directory or specify the desired targe
     // switch to more robust solution after splitting
     // @edgedb/generate into separate package
 
-    if (denoJsonExists) {
+    // @ts-ignore
+    const isDenoRuntime = typeof Deno !== "undefined";
+
+    if (isDenoRuntime || denoJsonExists) {
       options.target = "deno";
       console.log(
-        `Detected deno.json, generating TypeScript files with Deno-style imports.`
+        `Detected ${
+          isDenoRuntime ? "Deno runtime" : "deno.json"
+        }, generating TypeScript files with Deno-style imports.`
       );
     } else if (tsConfigExists) {
       const tsConfig = tsConfigExists
@@ -329,7 +345,7 @@ Run this command inside an EdgeDB project directory or specify the desired targe
     const username = (
       await parseConnectArguments({
         ...connectionConfig,
-        password: ""
+        password: "",
       })
     ).connectionParams.user;
     connectionConfig.password = await promptForPassword(username);
@@ -343,7 +359,7 @@ Run this command inside an EdgeDB project directory or specify the desired targe
       await generateQueryBuilder({
         options,
         connectionConfig,
-        root: projectRoot
+        root: projectRoot,
       });
       adapter.process.exit();
       break;
@@ -351,14 +367,14 @@ Run this command inside an EdgeDB project directory or specify the desired targe
       await generateQueryFiles({
         options,
         connectionConfig,
-        root: projectRoot
+        root: projectRoot,
       });
       break;
     case Generator.Interfaces:
       await runInterfacesGenerator({
         options,
         connectionConfig,
-        root: projectRoot
+        root: projectRoot,
       });
       break;
   }
@@ -400,7 +416,12 @@ OPTIONS:
         cjs    Generate JavaScript with CommonJS syntax
         deno   Generate TypeScript files (.ts) with Deno-style (*.ts) imports
 
-    --out <path>
+    --out, --output-dir <path>
+        Change the output directory the querybuilder files are generated into
+        (Only valid for 'edgeql-js' generator)
+    --file <path>
+        Change the output filepath of the 'queries' and 'interfaces' generators
+        When used with the 'queries' generator, also changes output to single-file mode
     --force-overwrite
         Overwrite <path> contents without confirmation
 `);
