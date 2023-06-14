@@ -41,6 +41,7 @@ import {
   DateDurationCodec,
 } from "./datetime.ts";
 import { ConfigMemoryCodec } from "./memory.ts";
+import { PgVectorCodec } from "./pgvector.ts";
 import { InternalClientError } from "../errors/index.ts";
 
 import { INVALID_CODEC_ID, KNOWN_TYPENAMES, NULL_CODEC_ID } from "./consts.ts";
@@ -115,3 +116,5 @@ registerScalarCodec("cal::relative_duration", RelativeDurationCodec);
 registerScalarCodec("cal::date_duration", DateDurationCodec);
 
 registerScalarCodec("cfg::memory", ConfigMemoryCodec);
+
+registerScalarCodec("ext::pgvector::vector", PgVectorCodec);
