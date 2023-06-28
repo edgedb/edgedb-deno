@@ -67,6 +67,12 @@ the `.edgedb` directory is located).
 Needed if connecting with an instance name, to read the instance credentials
 file from `<home-dir>/.edgedb/credentials`.
 
+### `--unsafely-ignore-certificates-error` (optional)
+
+Needed if connecting to an instance that is using self-signed certificates,
+which is the case if running the server in `insecure_dev_mode` or with
+`EDGEDB_SERVER_TLS_CERT_MODE=generate_self_signed`.
+
 ## Generating typed queries, interfaces and the QueryBuilder
 
 **Follow the up to date guide [here](https://www.edgedb.com/docs/clients/js/index)**
