@@ -53,9 +53,10 @@ The permissions `edgedb-deno` may require are detailed below:
 
 This permission is required to connect to EdgeDB instances.
 
-### `--unstable` flag (required)
+### `--unstable` flag (required < v1.35.1)
 
-`edgedb-deno` uses the unstable `alpnProtocols` API on `Deno.connectTls`.
+`edgedb-deno` uses the recently stabilized `alpnProtocols` API on `Deno.connectTls`.
+If you are running an older version of Deno, you may need to enable this flag
 
 ### `--allow-env` (optional)
 
