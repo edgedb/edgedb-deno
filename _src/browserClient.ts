@@ -1,14 +1,17 @@
 import { BaseClientPool, Client, ConnectOptions } from "./baseClient.ts";
 import { getConnectArgumentsParser } from "./conUtils.ts";
+import cryptoUtils from "./browserCrypto.ts";
 import { EdgeDBError } from "./errors/index.ts";
 import { FetchConnection } from "./fetchConn.ts";
+import { getHTTPSCRAMAuth } from "./httpScram.ts";
 import { Options } from "./options.ts";
 
 const parseConnectArguments = getConnectArgumentsParser(null);
+const httpSCRAMAuth = getHTTPSCRAMAuth(cryptoUtils);
 
-export class FetchClientPool extends BaseClientPool {
+class FetchClientPool extends BaseClientPool {
   isStateless = true;
-  _connectWithTimeout = FetchConnection.connectWithTimeout;
+  _connectWithTimeout = FetchConnection.createConnectWithTimeout(httpSCRAMAuth);
 }
 
 export function createClient(): Client {
