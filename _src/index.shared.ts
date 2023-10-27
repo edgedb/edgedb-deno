@@ -27,14 +27,14 @@ export {
   DateDuration,
 } from "./datatypes/datetime.ts";
 export { ConfigMemory } from "./datatypes/memory.ts";
-export { Range } from "./datatypes/range.ts";
+export { Range, MultiRange } from "./datatypes/range.ts";
 
 export type { Executor } from "./ifaces.ts";
 
 export * from "./errors/index.ts";
 
 /* Private APIs */
-import * as codecs from "./codecs/ifaces.ts";
+import type * as codecs from "./codecs/ifaces.ts";
 import * as reg from "./codecs/registry.ts";
 import * as buf from "./primitives/buffer.ts";
 export const _CodecsRegistry = reg.CodecsRegistry;
