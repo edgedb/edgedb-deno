@@ -1,10 +1,11 @@
-import { Executor } from "../../ifaces.ts";
+import type { Executor } from "../../ifaces.ts";
 import { StrictMap } from "../strictMap.ts";
 
-import { FuncopParam, replaceNumberTypes, FuncopTypemod } from "./functions.ts";
+import type { FuncopParam, FuncopTypemod } from "./functions.ts";
+import { replaceNumberTypes } from "./functions.ts";
 import { util } from "../util.ts";
-import { typeutil } from "../typeutil.ts";
-import { OperatorKind } from "../enums.ts";
+import type { typeutil } from "../typeutil.ts";
+import type { OperatorKind } from "../enums.ts";
 
 export type { FuncopTypemod };
 
@@ -49,7 +50,7 @@ const _operators = async (cxn: Executor) => {
 
   for (const op of JSON.parse(operatorsJson)) {
     const identifier = op.annotations.find(
-      (anno: any) => anno.name === "std::identifier"
+      (anno: { name: string }) => anno.name === "std::identifier"
     )?.["@value"];
 
     if (!identifier) {
@@ -70,7 +71,7 @@ const _operators = async (cxn: Executor) => {
       kind: op.operator_kind,
       originalName: op.name,
       description: op.annotations.find(
-        (anno: any) => anno.name === "std::description"
+        (anno: { name: string }) => anno.name === "std::description"
       )?.["@value"],
       annotations: undefined,
     };
