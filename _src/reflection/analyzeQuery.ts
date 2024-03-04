@@ -1,8 +1,8 @@
-import type { ParseResult } from "../baseConn.ts";
 import { ArrayCodec } from "../codecs/array.ts";
 import { AT_LEAST_ONE, AT_MOST_ONE, MANY, ONE } from "../codecs/consts.ts";
 import { EnumCodec } from "../codecs/enum.ts";
-import { ICodec, ScalarCodec } from "../codecs/ifaces.ts";
+import type { ICodec } from "../codecs/ifaces.ts";
+import { ScalarCodec } from "../codecs/ifaces.ts";
 import { NamedTupleCodec } from "../codecs/namedtuple.ts";
 import { ObjectCodec } from "../codecs/object.ts";
 import { MultiRangeCodec, RangeCodec } from "../codecs/range.ts";
@@ -25,25 +25,8 @@ export async function analyzeQuery(
   client: Client,
   query: string
 ): Promise<QueryType> {
-  let parseResult: ParseResult;
-  const pool: BaseClientPool = (client as any).pool;
+  const [cardinality, inCodec, outCodec] = await parseQuery(client, query);
 
-  const holder = await pool.acquireHolder(Options.defaults());
-  try {
-    const cxn = await holder._getConnection();
-    parseResult = await cxn._parse(
-      query,
-      OutputFormat.BINARY,
-      Cardinality.MANY,
-      Session.defaults()
-    );
-  } finally {
-    await holder.release();
-  }
-
-  const cardinality = parseResult[0];
-  const inCodec = parseResult[1];
-  const outCodec = parseResult[2];
   const imports = new Set<string>();
   const args = walkCodec(inCodec, {
     indent: "",
@@ -51,7 +34,7 @@ export async function analyzeQuery(
     imports,
   });
 
-  const result = generateSetType(
+  const result = applyCardinalityToTsType(
     walkCodec(outCodec, {
       indent: "",
       optionalNulls: false,
@@ -69,7 +52,27 @@ export async function analyzeQuery(
   };
 }
 
-function generateSetType(type: string, cardinality: Cardinality): string {
+export async function parseQuery(client: Client, query: string) {
+  const pool: BaseClientPool = (client as any).pool;
+
+  const holder = await pool.acquireHolder(Options.defaults());
+  try {
+    const cxn = await holder._getConnection();
+    return await cxn._parse(
+      query,
+      OutputFormat.BINARY,
+      Cardinality.MANY,
+      Session.defaults()
+    );
+  } finally {
+    await holder.release();
+  }
+}
+
+export function applyCardinalityToTsType(
+  type: string,
+  cardinality: Cardinality
+): string {
   switch (cardinality) {
     case Cardinality.MANY:
       return `${type}[]`;
@@ -85,6 +88,7 @@ function generateSetType(type: string, cardinality: Cardinality): string {
 
 // type AtLeastOne<T> = [T, ...T[]];
 
+export { walkCodec as walkCodecToTsType };
 function walkCodec(
   codec: ICodec,
   ctx: { indent: string; optionalNulls: boolean; imports: Set<string> }
@@ -120,7 +124,7 @@ function walkCodec(
         }
         return `${ctx.indent}  ${JSON.stringify(field.name)}${
           ctx.optionalNulls && field.cardinality === AT_MOST_ONE ? "?" : ""
-        }: ${generateSetType(
+        }: ${applyCardinalityToTsType(
           walkCodec(subCodec, { ...ctx, indent: ctx.indent + "  " }),
           field.cardinality
         )};`;
