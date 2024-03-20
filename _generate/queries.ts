@@ -1,5 +1,4 @@
 import { $, adapter, type Client } from "../mod.ts";
-import { Cardinality } from "../_src/ifaces.ts";
 import { type CommandOptions } from "./commandutil.ts";
 import { headerComment } from "./genutil.ts";
 import { type Target, camelify } from "./genutil.ts";
@@ -193,9 +192,9 @@ export function generateFiles(params: {
   );
 
   const method =
-    params.types.cardinality === Cardinality.ONE
+    params.types.cardinality === $.Cardinality.One
       ? "queryRequiredSingle"
-      : params.types.cardinality === Cardinality.AT_MOST_ONE
+      : params.types.cardinality === $.Cardinality.AtMostOne
       ? "querySingle"
       : "query";
   const functionName = camelify(baseFileName);
