@@ -40,6 +40,3 @@ import * as buf from "./primitives/buffer.ts";
 export const _CodecsRegistry = reg.CodecsRegistry;
 export const _ReadBuffer = buf.ReadBuffer;
 export type _ICodec = codecs.ICodec;
-
-import { plugJSBI } from "./primitives/bigint.ts";
-export const _plugJSBI = plugJSBI;

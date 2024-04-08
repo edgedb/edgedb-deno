@@ -17,7 +17,6 @@
  */
 
 import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
-import * as bi from "../primitives/bigint.ts";
 import { ICodec, ScalarCodec } from "./ifaces.ts";
 import { InvalidArgumentError } from "../errors/index.ts";
 
@@ -38,7 +37,7 @@ export class Int64Codec extends ScalarCodec implements ICodec {
 
 export class Int64BigintCodec extends ScalarCodec implements ICodec {
   encode(buf: WriteBuffer, object: any): void {
-    if (!bi.isBigInt(object)) {
+    if (typeof object !== "bigint") {
       throw new InvalidArgumentError(`a bigint was expected, got "${object}"`);
     }
     buf.writeInt32(8);
