@@ -1,7 +1,7 @@
 import { $, adapter, type Client } from "../mod.ts";
 import { type CommandOptions } from "./commandutil.ts";
 import { headerComment } from "./genutil.ts";
-import { type Target, camelify } from "./genutil.ts";
+import type { Target } from "./genutil.ts";
 
 // generate per-file queries
 // generate queries in a single file
@@ -205,7 +205,9 @@ export function generateFiles(params: {
       : params.types.cardinality === $.Cardinality.AtMostOne
       ? "querySingle"
       : "query";
-  const functionName = camelify(baseFileName);
+  const functionName = baseFileName
+    .replace(/-[A-Za-z]/g, (m) => m[1].toUpperCase())
+    .replace(/^[^A-Za-z_]|\W/g, "_");
   const interfaceName =
     functionName.charAt(0).toUpperCase() + functionName.slice(1);
   const argsInterfaceName = `${interfaceName}Args`;
