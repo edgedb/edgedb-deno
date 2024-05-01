@@ -1,4 +1,4 @@
-import { BaseClientPool, Client, ConnectOptions } from "./baseClient.ts";
+import { BaseClientPool, Client, type ConnectOptions } from "./baseClient.ts";
 import { parseConnectArguments } from "./conUtils.server.ts";
 import cryptoUtils from "./adapter.crypto.deno.ts";
 import { Options } from "./options.ts";

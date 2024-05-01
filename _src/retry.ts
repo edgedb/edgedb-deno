@@ -16,14 +16,13 @@
  * limitations under the License.
  */
 
-import { BaseRawConnection } from "./baseConn.ts";
-import { CodecsRegistry } from "./codecs/registry.ts";
-import { Address, NormalizedConnectConfig } from "./conUtils.ts";
+import type { BaseRawConnection } from "./baseConn.ts";
+import type { CodecsRegistry } from "./codecs/registry.ts";
+import type { NormalizedConnectConfig } from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
 import { sleep } from "./utils.ts";
 
 export type ConnectWithTimeout = (
-  addr: Address,
   config: NormalizedConnectConfig,
   registry: CodecsRegistry
 ) => Promise<BaseRawConnection>;
@@ -41,11 +40,7 @@ export async function retryingConnect(
       : Date.now() + config.connectionParams.waitUntilAvailable;
   while (true) {
     try {
-      return await connectWithTimeout(
-        config.connectionParams.address,
-        config,
-        registry
-      );
+      return await connectWithTimeout(config, registry);
     } catch (e) {
       if (e instanceof errors.ClientConnectionError) {
         if (e.hasTag(errors.SHOULD_RECONNECT)) {

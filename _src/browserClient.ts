@@ -1,4 +1,4 @@
-import { BaseClientPool, Client, ConnectOptions } from "./baseClient.ts";
+import { BaseClientPool, Client, type ConnectOptions } from "./baseClient.ts";
 import { getConnectArgumentsParser } from "./conUtils.ts";
 import cryptoUtils from "./browserCrypto.ts";
 import { EdgeDBError } from "./errors/index.ts";
