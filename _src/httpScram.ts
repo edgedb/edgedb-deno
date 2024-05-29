@@ -6,7 +6,7 @@ import {
   utf8Encoder,
 } from "./primitives/buffer.ts";
 import { getSCRAM } from "./scram.ts";
-import { CryptoUtils } from "./utils.ts";
+import type { CryptoUtils } from "./utils.ts";
 
 const AUTH_ENDPOINT = "/auth/token";
 

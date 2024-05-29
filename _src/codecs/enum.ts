@@ -16,7 +16,7 @@
  * limitations under the License.
  */
 
-import { ICodec, uuid } from "./ifaces.ts";
+import type { ICodec, uuid } from "./ifaces.ts";
 import { StrCodec } from "./text.ts";
 
 export class EnumCodec extends StrCodec implements ICodec {

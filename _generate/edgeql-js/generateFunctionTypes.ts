@@ -1,28 +1,21 @@
 import type { GeneratorParams } from "../genutil.ts";
 import { frag, getRef, quote, splitName } from "../genutil.ts";
-import {
-  all,
-  CodeBuffer,
-  CodeBuilder,
-  CodeFragment,
-  DirBuilder,
-  dts,
-  r,
-  t,
-  ts,
-} from "../builders.ts";
+import type { CodeBuilder, CodeFragment, DirBuilder } from "../builders.ts";
+import { all, CodeBuffer, dts, r, t, ts } from "../builders.ts";
 
 import { getStringRepresentation } from "./generateObjectTypes.ts";
 import type { $ } from "../genutil.ts";
+import type {
+  GroupedParams,
+  AnytypeDef,
+  FuncopDefOverload,
+} from "../funcoputil.ts";
 import {
   getTypesSpecificity,
   sortFuncopOverloads,
   getImplicitCastableRootTypes,
   expandFuncopAnytypeOverloads,
-  GroupedParams,
   findPathOfAnytype,
-  AnytypeDef,
-  FuncopDefOverload,
 } from "../funcoputil.ts";
 
 export const generateFunctionTypes = ({
@@ -491,7 +484,7 @@ export function generateReturnCardinality(
   returnTypemod: $.introspect.FuncopTypemod,
   hasNamedParams: boolean,
   anytypes: AnytypeDef | null,
-  preservesOptionality: boolean = false
+  preservesOptionality = false
 ) {
   if (
     returnTypemod === "SetOfType" &&

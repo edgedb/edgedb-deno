@@ -18,7 +18,8 @@
 
 import { KNOWN_TYPENAMES } from "./consts.ts";
 
-import { ICodec, Codec, uuid, IArgsCodec, CodecKind } from "./ifaces.ts";
+import type { ICodec, uuid, IArgsCodec, CodecKind } from "./ifaces.ts";
+import { Codec } from "./ifaces.ts";
 import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
 import {
   InvalidArgumentError,
@@ -35,7 +36,7 @@ export class TupleCodec extends Codec implements ICodec, IArgsCodec {
     this.subCodecs = codecs;
   }
 
-  encode(buf: WriteBuffer, object: any, allowNull: boolean = false): void {
+  encode(buf: WriteBuffer, object: any, allowNull = false): void {
     if (!Array.isArray(object)) {
       throw new InvalidArgumentError(`an array was expected, got "${object}"`);
     }

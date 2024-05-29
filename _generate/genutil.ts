@@ -4,7 +4,7 @@ import type {
   DirBuilder,
   IdentRef,
 } from "./builders.ts";
-import * as introspect from "../_src/reflection/queries/types.ts";
+import type * as introspect from "../_src/reflection/queries/types.ts";
 import { util } from "../_src/reflection/index.ts";
 
 export { $ } from "../mod.ts";
@@ -232,7 +232,7 @@ export function toTSObjectType(
   types: introspect.Types,
   currentMod: string,
   code: CodeBuilder,
-  level: number = 0
+  level = 0
 ): CodeFragment[] {
   if (type.intersection_of && type.intersection_of.length) {
     const res: CodeFragment[][] = [];
@@ -469,7 +469,6 @@ export type GeneratorParams = {
 };
 
 export function exitWithError(message: string): never {
-  // tslint:disable-next-line
   console.error(message);
   adapter.exit(1);
   throw new Error();

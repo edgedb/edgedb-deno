@@ -18,7 +18,7 @@
 
 import { ReadBuffer, utf8Decoder } from "../primitives/buffer.ts";
 import LRU from "../primitives/lru.ts";
-import { ICodec, uuid, ScalarCodec } from "./ifaces.ts";
+import { type ICodec, type uuid, ScalarCodec } from "./ifaces.ts";
 import { NULL_CODEC, SCALAR_CODECS } from "./codecs.ts";
 import { NULL_CODEC_ID, KNOWN_TYPES, KNOWN_TYPENAMES } from "./consts.ts";
 import { EMPTY_TUPLE_CODEC, EMPTY_TUPLE_CODEC_ID, TupleCodec } from "./tuple.ts";
@@ -31,7 +31,7 @@ import { EnumCodec } from "./enum.ts";
 import { ObjectCodec } from "./object.ts";
 import { SetCodec } from "./set.ts";
 import { MultiRangeCodec, RangeCodec } from "./range.ts";
-import { ProtocolVersion } from "../ifaces.ts";
+import type { ProtocolVersion } from "../ifaces.ts";
 import { versionGreaterThanOrEqual } from "../utils.ts";
 import { SparseObjectCodec } from "./sparseObject.ts";
 import { ProtocolError, InternalClientError } from "../errors/index.ts";
@@ -359,7 +359,7 @@ export class CodecsRegistry {
             "could not build scalar codec: base scalar has a non-scalar codec"
           );
         }
-        res = <ICodec>res.derive(tid);
+        res = res.derive(tid) as ICodec;
         break;
       }
 

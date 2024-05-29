@@ -16,7 +16,8 @@
  * limitations under the License.
  */
 
-import { ICodec, Codec, uuid, IArgsCodec, CodecKind } from "./ifaces.ts";
+import type { ICodec, uuid, IArgsCodec, CodecKind } from "./ifaces.ts";
+import { Codec } from "./ifaces.ts";
 import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
 import { EmptyTupleCodec } from "./tuple.ts";
 import {

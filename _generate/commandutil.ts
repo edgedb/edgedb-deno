@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 
-// tslint:disable:no-console
 import { adapter } from "../mod.ts";
-import { exitWithError, Target } from "./genutil.ts";
+import { type Target, exitWithError } from "./genutil.ts";
 
 export interface CommandOptions {
   showHelp?: boolean;

@@ -1,4 +1,4 @@
-import { Executor } from "../../ifaces.ts";
+import type { Executor } from "../../ifaces.ts";
 import { StrictMap } from "../strictMap.ts";
 import type { typeutil } from "../typeutil.ts";
 import { typeMapping } from "./types.ts";

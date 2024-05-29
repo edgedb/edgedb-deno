@@ -18,26 +18,32 @@
 
 import type { Duration } from "./datatypes/datetime.ts";
 import { CodecsRegistry } from "./codecs/registry.ts";
-import {
+import type {
   ConnectArgumentsParser,
   ConnectConfig,
   NormalizedConnectConfig,
   ResolvedConnectConfigReadonly,
 } from "./conUtils.ts";
 import * as errors from "./errors/index.ts";
-import { Cardinality, Executor, OutputFormat, QueryArgs } from "./ifaces.ts";
 import {
-  Options,
+  type Executor,
+  type QueryArgs,
+  Cardinality,
+  OutputFormat,
+} from "./ifaces.ts";
+import type {
   RetryOptions,
   Session,
   SimpleRetryOptions,
   SimpleTransactionOptions,
   TransactionOptions,
 } from "./options.ts";
+import { Options } from "./options.ts";
 import Event from "./primitives/event.ts";
 import { LifoQueue } from "./primitives/queues.ts";
-import { BaseRawConnection } from "./baseConn.ts";
-import { ConnectWithTimeout, retryingConnect } from "./retry.ts";
+import type { BaseRawConnection } from "./baseConn.ts";
+import type { ConnectWithTimeout } from "./retry.ts";
+import { retryingConnect } from "./retry.ts";
 import { util } from "./reflection/util.ts";
 import { Transaction } from "./transaction.ts";
 import { sleep } from "./utils.ts";
@@ -121,7 +127,7 @@ export class ClientConnectionHolder {
     action: (transaction: Transaction) => Promise<T>
   ): Promise<T> {
     let result: T | void;
-    for (let iteration = 0; true; ++iteration) {
+    for (let iteration = 0; ; ++iteration) {
       const transaction = await Transaction._startTransaction(this);
 
       let commitFailed = false;
@@ -173,7 +179,7 @@ export class ClientConnectionHolder {
     expectedCardinality: Cardinality
   ): Promise<any> {
     let result: any;
-    for (let iteration = 0; true; ++iteration) {
+    for (let iteration = 0; ; ++iteration) {
       const conn = await this._getConnection();
       try {
         result = await conn.fetch(
@@ -438,7 +444,6 @@ export abstract class BaseClientPool {
     );
 
     const warningTimeoutId = setTimeout(() => {
-      // tslint:disable-next-line: no-console
       console.warn(
         "Client.close() is taking over 60 seconds to complete. " +
           "Check if you have any unreleased connections left."
@@ -534,7 +539,7 @@ export class Client implements Executor {
     return new Client(this.pool, this.options.withSession(session));
   }
 
-  withModuleAliases(aliases: { [name: string]: string }) {
+  withModuleAliases(aliases: Record<string, string>) {
     return new Client(
       this.pool,
       this.options.withSession(this.options.session.withModuleAliases(aliases))
@@ -546,7 +551,7 @@ export class Client implements Executor {
     return new Client(this.pool, this.options.withSession(newConfig));
   }
 
-  withGlobals(globals: { [name: string]: any }): Client {
+  withGlobals(globals: Record<string, any>): Client {
     return new Client(
       this.pool,
       this.options.withSession(this.options.session.withGlobals(globals))

@@ -18,8 +18,6 @@
  * limitations under the License.
  */
 
-/* tslint:disable */
-
 import { EdgeDBError } from "./base.ts";
 import * as tags from "./tags.ts";
 export { EdgeDBError } from "./base.ts";

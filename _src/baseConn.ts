@@ -17,23 +17,21 @@
  */
 
 import { INVALID_CODEC, NullCodec, NULL_CODEC } from "./codecs/codecs.ts";
-import { ICodec, uuid } from "./codecs/ifaces.ts";
+import type { ICodec, uuid } from "./codecs/ifaces.ts";
 import { NamedTupleCodec } from "./codecs/namedtuple.ts";
 import { ObjectCodec } from "./codecs/object.ts";
-import { CodecsRegistry } from "./codecs/registry.ts";
+import type { CodecsRegistry } from "./codecs/registry.ts";
 import { EmptyTupleCodec, EMPTY_TUPLE_CODEC, TupleCodec } from "./codecs/tuple.ts";
 import { versionGreaterThanOrEqual } from "./utils.ts";
 import * as errors from "./errors/index.ts";
 import { resolveErrorCode } from "./errors/resolve.ts";
-import {
-  Cardinality,
-  LegacyHeaderCodes,
-  OutputFormat,
+import type {
   QueryOptions,
   ProtocolVersion,
   QueryArgs,
   ServerSettings,
 } from "./ifaces.ts";
+import { Cardinality, LegacyHeaderCodes, OutputFormat } from "./ifaces.ts";
 import {
   ReadBuffer,
   ReadMessageBuffer,
@@ -44,7 +42,8 @@ import {
 import * as chars from "./primitives/chars.ts";
 import Event from "./primitives/event.ts";
 import LRU from "./primitives/lru.ts";
-import { SerializedSessionState, Session } from "./options.ts";
+import type { SerializedSessionState } from "./options.ts";
+import { Session } from "./options.ts";
 
 export const PROTO_VER: ProtocolVersion = [1, 0];
 export const PROTO_VER_MIN: ProtocolVersion = [0, 9];
@@ -110,7 +109,7 @@ export type connConstructor = new (
 ) => BaseRawConnection;
 
 export class BaseRawConnection {
-  protected connected: boolean = false;
+  protected connected = false;
 
   protected lastStatus: string | null;
 
@@ -136,7 +135,7 @@ export class BaseRawConnection {
   protected stateCache = new WeakMap<Session, Uint8Array>();
   lastStateUpdate: SerializedSessionState | null = null;
 
-  protected adminUIMode: boolean = false;
+  protected adminUIMode = false;
 
   /** @internal */
   protected constructor(registry: CodecsRegistry) {
@@ -164,7 +163,7 @@ export class BaseRawConnection {
     this.throwNotImplemented("_waitForMessage");
   }
 
-  protected _sendData(data: Uint8Array): void {
+  protected _sendData(_data: Uint8Array): void {
     this.throwNotImplemented("_sendData");
   }
 
@@ -335,10 +334,7 @@ export class BaseRawConnection {
     this.buffer.finishMessage();
   }
 
-  private _parseDataMessages(
-    codec: ICodec,
-    result: Array<any> | WriteBuffer
-  ): void {
+  private _parseDataMessages(codec: ICodec, result: any[] | WriteBuffer): void {
     const frb = ReadBuffer.alloc();
     const $D = chars.$D;
     const buffer = this.buffer;
@@ -428,9 +424,7 @@ export class BaseRawConnection {
         this._parseHeaders();
         this.buffer.finishMessage();
 
-        /* tslint:disable */
         console.info("SERVER MESSAGE", severity, code, message);
-        /* tslint:enable */
 
         break;
       }
@@ -477,7 +471,7 @@ export class BaseRawConnection {
     let outTypeId: uuid | null = null;
     let inCodec: ICodec | null;
     let outCodec: ICodec | null;
-    let capabilities: number = -1;
+    let capabilities = -1;
     let parsing = true;
     let error: Error | null = null;
     let inCodecData: Uint8Array | null = null;
@@ -684,7 +678,7 @@ export class BaseRawConnection {
     args: QueryArgs,
     inCodec: ICodec,
     outCodec: ICodec,
-    result: Array<any> | WriteBuffer
+    result: any[] | WriteBuffer
   ): Promise<void> {
     const wb = new WriteMessageBuffer();
     wb.beginMessage(chars.$E)
@@ -756,7 +750,7 @@ export class BaseRawConnection {
     expectedCardinality: Cardinality,
     inCodec: ICodec,
     outCodec: ICodec,
-    result: Array<any> | WriteBuffer
+    result: any[] | WriteBuffer
   ): Promise<void> {
     const expectOne =
       expectedCardinality === Cardinality.ONE ||
@@ -1040,7 +1034,7 @@ export class BaseRawConnection {
     state: Session,
     inCodec: ICodec,
     outCodec: ICodec,
-    result: Array<any> | WriteBuffer,
+    result: any[] | WriteBuffer,
     capabilitiesFlags: number = RESTRICTED_CAPABILITIES,
     options?: QueryOptions
   ): Promise<void> {
@@ -1199,7 +1193,7 @@ export class BaseRawConnection {
     outputFormat: OutputFormat,
     expectedCardinality: Cardinality,
     state: Session,
-    privilegedMode: boolean = false
+    privilegedMode = false
   ): Promise<any> {
     if (this.isLegacyProtocol && outputFormat === OutputFormat.NONE) {
       if (args != null) {
@@ -1350,7 +1344,7 @@ export class BaseRawConnection {
 
   async legacyExecute(
     query: string,
-    allowTransactionCommands: boolean = false
+    allowTransactionCommands = false
   ): Promise<void> {
     this._checkState();
 

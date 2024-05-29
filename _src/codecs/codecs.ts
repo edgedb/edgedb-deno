@@ -16,9 +16,10 @@
  * limitations under the License.
  */
 
-import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
+import type { ReadBuffer } from "../primitives/buffer.ts";
+import { WriteBuffer } from "../primitives/buffer.ts";
 import { BoolCodec } from "./boolean.ts";
-import { ICodec, uuid, Codec, CodecKind } from "./ifaces.ts";
+import { type ICodec, type uuid, type CodecKind, Codec } from "./ifaces.ts";
 import {
   Int16Codec,
   Int32Codec,

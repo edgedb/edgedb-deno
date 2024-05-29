@@ -16,7 +16,8 @@
  * limitations under the License.
  */
 
-import { ICodec, Codec, uuid, CodecKind } from "./ifaces.ts";
+import type { ICodec, uuid, CodecKind } from "./ifaces.ts";
+import { Codec } from "./ifaces.ts";
 import { ReadBuffer, WriteBuffer } from "../primitives/buffer.ts";
 import { UnknownArgumentError } from "../errors/index.ts";
 
