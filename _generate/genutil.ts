@@ -7,6 +7,7 @@ import type {
 import type * as introspect from "../_src/reflection/queries/types.ts";
 import { util } from "../_src/reflection/index.ts";
 
+export { OperatorKind, StrictMapSet } from "../_src/reflection/index.ts";
 export { $ } from "../mod.ts";
 import type { $ } from "../mod.ts";
 import { adapter } from "../mod.ts";
