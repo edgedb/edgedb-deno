@@ -1,6 +1,6 @@
 import { BaseClientPool, Client, type ConnectOptions } from "./baseClient.ts";
 import { getConnectArgumentsParser } from "./conUtils.ts";
-import cryptoUtils from "./browserCrypto.ts";
+import { cryptoUtils } from "./browserCrypto.ts";
 import { EdgeDBError } from "./errors/index.ts";
 import { FetchConnection } from "./fetchConn.ts";
 import { getHTTPSCRAMAuth } from "./httpScram.ts";
