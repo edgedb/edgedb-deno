@@ -1,3 +1,5 @@
+import {Buffer} from "./globals.deno.ts";
+
 import crypto from "node:crypto";
 import type { CryptoUtils } from "./utils.ts";
 
