@@ -2,6 +2,7 @@
 
 import { adapter } from "../mod.ts";
 import { type Target, exitWithError } from "./genutil.ts";
+import type { defaultFutureFlags } from "./edgeql-js.ts";
 
 export interface CommandOptions {
   showHelp?: boolean;
@@ -14,7 +15,7 @@ export interface CommandOptions {
   forceOverwrite?: boolean;
   updateIgnoreFile?: boolean;
   useHttpClient?: boolean;
-  future?: boolean;
+  future?: Partial<Record<keyof typeof defaultFutureFlags, boolean>>;
 }
 
 const { input } = adapter;
