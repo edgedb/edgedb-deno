@@ -3,6 +3,8 @@ import type { Cardinality } from "../enums.ts";
 import type { UUID } from "./queryTypes.ts";
 import { StrictMap } from "../strictMap.ts";
 
+export { UUID };
+
 export type Pointer = {
   card: Cardinality;
   kind: "link" | "property";
