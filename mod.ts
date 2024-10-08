@@ -33,7 +33,7 @@ export {
   RetryOptions,
   Session,
 } from "./_src/options.ts";
-export { defaultBackoff } from "./_src/options.ts";
+export { defaultBackoff, logWarnings, throwWarnings } from "./_src/options.ts";
 export type { BackoffFunction } from "./_src/options.ts";
 
 export * from "./_src/index.shared.ts";
