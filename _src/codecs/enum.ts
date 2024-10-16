@@ -22,8 +22,13 @@ import { StrCodec } from "./text.ts";
 export class EnumCodec extends StrCodec implements ICodec {
   readonly values: string[];
 
-  constructor(tid: uuid, derivedFromTid: uuid | null = null, values: string[]) {
-    super(tid, derivedFromTid);
+  constructor(
+    tid: uuid,
+    typeName: string | null,
+    derivedFromTid: uuid | null = null,
+    values: string[],
+  ) {
+    super(tid, typeName, derivedFromTid);
     this.values = values;
   }
 }

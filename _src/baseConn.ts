@@ -45,7 +45,7 @@ import LRU from "./primitives/lru.ts";
 import type { SerializedSessionState } from "./options.ts";
 import { Session } from "./options.ts";
 
-export const PROTO_VER: ProtocolVersion = [1, 0];
+export const PROTO_VER: ProtocolVersion = [2, 0];
 export const PROTO_VER_MIN: ProtocolVersion = [0, 9];
 
 enum TransactionStatus {
