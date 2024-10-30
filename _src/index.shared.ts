@@ -28,6 +28,8 @@ export {
 } from "./datatypes/datetime.ts";
 export { ConfigMemory } from "./datatypes/memory.ts";
 export { Range, MultiRange } from "./datatypes/range.ts";
+export { SparseVector } from "./datatypes/pgvector.ts";
+export { Float16Array } from "./adapter.shared.deno.ts";
 
 export type { Executor } from "./ifaces.ts";
 
