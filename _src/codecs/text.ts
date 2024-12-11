@@ -22,7 +22,7 @@ import { type ICodec, ScalarCodec } from "./ifaces.ts";
 import { InvalidArgumentError } from "../errors/index.ts";
 
 export class StrCodec extends ScalarCodec implements ICodec {
-  tsType = "string";
+  override tsType = "string";
 
   encode(buf: WriteBuffer, object: any): void {
     if (typeof object !== "string") {

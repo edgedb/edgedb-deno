@@ -22,8 +22,8 @@ import { ConfigMemory } from "../datatypes/memory.ts";
 import { InvalidArgumentError } from "../errors/index.ts";
 
 export class ConfigMemoryCodec extends ScalarCodec implements ICodec {
-  tsType = "ConfigMemory";
-  tsModule = "edgedb";
+  override tsType = "ConfigMemory";
+  override tsModule = "edgedb";
 
   encode(buf: WriteBuffer, object: any): void {
     if (!(object instanceof ConfigMemory)) {
